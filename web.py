@@ -53,7 +53,7 @@ def _load_skills(path: Path) -> Dict[str, str]:
         skills[current_key] = "\n".join(current_lines).strip()
     return skills
 
-SKILLS = _load_skills(_DIR / "SKILLS.md")
+SKILLS = _load_skills(Path(__file__).parent / "SKILLS.md")
 
 # ── Env loading ──────────────────────────────────────────────────────────────
 _DIR = Path(__file__).parent
