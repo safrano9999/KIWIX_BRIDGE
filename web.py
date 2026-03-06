@@ -24,7 +24,8 @@ import requests
 from flask import Flask, request, jsonify, Response, stream_with_context, render_template_string
 import litellm
 from dotenv import load_dotenv
-from kiwix_tool import build_context
+import re
+from kiwix_tool import fetch_articles
 
 logging.basicConfig(level=logging.WARNING)
 
@@ -392,12 +393,11 @@ async function ask() {
         let obj;
         try { obj = JSON.parse(raw); } catch { continue; }
 
-        if (obj.type === 'decision') {
-          if (obj.result === 'direct') {
-            aText.innerHTML = '<span class="searching">↳ aus eigenem Wissen<span class="cursor"> ▋</span></span>';
-          } else {
-            aText.innerHTML = '<span class="searching">↳ schlage nach...</span>';
-          }
+        if (obj.type === 'status') {
+          aText.innerHTML = '<span class="searching">' + obj.text + '</span>';
+        } else if (obj.type === 'keywords') {
+          const kws = (obj.items || []).join(' · ');
+          aText.innerHTML = '<span class="searching">↳ ' + kws + '...</span>';
         } else if (obj.type === 'citations') {
           citations = obj.items;
           if (citations.length) flashKiwix();
@@ -409,10 +409,9 @@ async function ask() {
           aText.textContent = fullText;
           resultsEl.scrollTop = resultsEl.scrollHeight;
         } else if (obj.type === 'no_results') {
-          const terms = (obj.terms || []).slice(0, 3).join(' · ');
           const note = document.createElement('div');
           note.className = 'no-kiwix';
-          note.textContent = '↳ Kiwix: keine Treffer für "' + terms + '" — Antwort aus Modellwissen';
+          note.textContent = '↳ Kiwix: keine Treffer — Antwort aus Modellwissen';
           aBody.insertBefore(note, aText);
           aText.innerHTML = '<span class="cursor">▋</span>';
         } else if (obj.type === 'error') {
@@ -475,103 +474,6 @@ loadModels();
 </html>
 """
 
-# ── Question classifier (no LLM needed — pure heuristics) ───────────────────
-#
-# Two question types:
-#   DIRECT  — logic, math, concepts, definitions, "how does X work"
-#   LOOKUP  — facts, numbers, dates, names, places, statistics, biographies
-#
-# Strategy: check strong LOOKUP signals first, then DIRECT signals,
-# then fall back on proper noun detection.
-
-import re as _re
-
-_LOOKUP_PATTERNS = [
-    # Quantity / statistics
-    r'\bwie viele?\b', r'\bwie (groß|hoch|alt|weit|lang|breit|schwer|tief)\b',
-    r'\bwie viel (kostet?|verdient?|wiegt?)\b',
-    r'\beinwohner\b', r'\bbevölkerung\b', r'\bfläche\b', r'\bhöhe\b',
-    r'\bbip\b', r'\bbruttoinlandsprodukt\b',
-    # Time / dates
-    r'\bwann\b', r'\bin welchem jahr\b', r'\bseit wann\b', r'\bab wann\b',
-    r'\bgegründet\b', r'\bgeboren\b', r'\bgestorben\b', r'\berfunden\b',
-    r'\burgründung\b', r'\bentdeckt\b',
-    # People / places
-    r'\bwer (ist|war|sind|waren|hat|hatte|gründete?|erfand|entdeckte?)\b',
-    r'\bwo (liegt|befindet|ist|war|steht|lebt)\b',
-    r'\bhauptstadt\b', r'\bregierung\b', r'\bpräsident\b', r'\bkanzler\b',
-    r'\bminister\b',
-    # History / biography
-    r'\bgeschichte\b', r'\bbiographie?\b', r'\blebenslauf\b',
-    r'\bherkunft\b', r'\bursprung\b',
-    r'\bwurde .{0,20} (gebaut|gegründet|erfunden|entdeckt)\b',
-    # English equivalents
-    r'\bhow (many|much|old|tall|high|far|long|wide|heavy)\b',
-    r'\bwhen (was|is|did|were)\b', r'\bsince when\b',
-    r'\bwho (is|was|are|were|invented|founded|discovered|created|built)\b',
-    r'\bwhere (is|was|are|were|does|did)\b',
-    r'\bpopulation\b', r'\bcapital (city|of)\b', r'\bpresident\b',
-    r'\bborn\b', r'\bdied\b', r'\bfounded\b', r'\binvented\b', r'\bdiscovered\b',
-    r'\bhistory of\b', r'\bbiography\b',
-]
-
-_DIRECT_PATTERNS = [
-    # Pure math expression
-    r'^[\d\s\+\-\*\/\(\)\.\,\^%=]+$',
-    r'\bberechne?\b', r'\brechne?\b', r'\bwas (ergibt|ist) \d',
-    r'\b\d+\s*[\+\-\*\/]\s*\d+\b',
-    # Definitions / concepts
-    r'\bwas bedeutet\b',
-    r'\berkl[äa]r(e|ung)?\b', r'\bdefinition\b',
-    r'\bwas ist der unterschied\b', r'\bunterschied zwischen\b',
-    r'\bwie funktioniert\b', r'\bwie arbeitet\b', r'\bwie (macht|geht) man\b',
-    r'\bwarum\b', r'\bwieso\b', r'\bweshalb\b',
-    # Programming / tech concepts
-    r'\bprogrammier\b', r'\bcode\b', r'\balgorithmus\b',
-    # English
-    r'\bexplain\b', r'\bwhat does .+ mean\b',
-    r'\bhow does\b', r'\bhow (do|can) (i|you|we)\b',
-    r'\bwhat.s the difference\b', r'\bwhy (is|are|does|do|did)\b',
-    r'\bdefine\b',
-]
-
-_LOOKUP_RE     = _re.compile('|'.join(_LOOKUP_PATTERNS), _re.IGNORECASE)
-_DIRECT_RE     = _re.compile('|'.join(_DIRECT_PATTERNS), _re.IGNORECASE)
-# German nouns are capitalized — mid-sentence caps = proper noun = factual topic
-_PROPER_NOUN_RE = _re.compile(r'(?<=[a-züäöß\s])\b([A-ZÜÄÖ][a-züäöß]{3,})\b')
-_NON_NOUNS      = frozenset([
-    "Ich", "Du", "Er", "Sie", "Wir", "Ihr", "Bitte", "Danke",
-    "Was", "Wer", "Wie", "Wo", "Wann", "Warum", "Welche", "Welcher",
-    "Ist", "Sind", "Hat", "Haben", "Wird", "Können", "Sollte",
-])
-
-
-def classify_question(question: str) -> str:
-    """
-    Returns 'lookup' or 'direct' — instant, no LLM call.
-
-    Logic:
-      1. Strong LOOKUP signals (wann/wer/wie viele/einwohner/...) → lookup
-      2. Strong DIRECT signals (math, warum, erkläre, wie funktioniert) → direct
-      3. German proper nouns detected mid-sentence → likely factual → lookup
-      4. Default → lookup (safer: rather check than hallucinate)
-    """
-    q = question.strip()
-
-    if _LOOKUP_RE.search(q):
-        return "lookup"
-
-    if _DIRECT_RE.search(q):
-        return "direct"
-
-    # German proper nouns mid-sentence → factual question
-    nouns = [n for n in _PROPER_NOUN_RE.findall(q) if n not in _NON_NOUNS]
-    if nouns:
-        return "lookup"
-
-    return "lookup"  # default: when in doubt, check
-
-
 def _build_llm_kwargs(model: str, api_key: str) -> Dict:
     """Build base litellm kwargs for a given model."""
     kwargs: Dict = {"model": model, "timeout": 60}
@@ -613,41 +515,73 @@ def api_ask():
     llm_kwargs  = _build_llm_kwargs(model, api_key)
 
     def generate():
-        # ── Step 1: Classify question (instant, no LLM call) ────────────────
-        decision = classify_question(question)
-        yield f"data: {json.dumps({'type': 'decision', 'result': decision})}\n\n"
+        # ── Step 1: LLM extracts 3-5 Wikipedia search keywords ──────────────
+        yield f"data: {json.dumps({'type': 'status', 'text': '↳ suche Keywords...'})}\n\n"
 
-        # ── Step 2: Kiwix lookup (only if needed) ───────────────────────────
-        kiwix = {"found": False, "context": "", "citations": [], "terms": []}
-        if decision == "lookup":
-            kiwix = build_context(question, lang=lang, n_articles=2)
-            if kiwix["found"]:
-                yield f"data: {json.dumps({'type': 'citations', 'items': kiwix['citations'], 'terms': kiwix.get('terms', [])})}\n\n"
-            else:
-                yield f"data: {json.dumps({'type': 'no_results', 'terms': kiwix.get('terms', [])})}\n\n"
+        keywords = []
+        try:
+            kw_resp = litellm.completion(
+                **{
+                    **llm_kwargs,
+                    "messages": [{
+                        "role": "user",
+                        "content": (
+                            "For a university research project, find exactly the 3 most relevant Wikipedia articles "
+                            "(English or German) that together would allow a student to answer the following question "
+                            "perfectly and completely. "
+                            "Name the 3 Wikipedia article titles as precise search keywords. "
+                            "Reply ONLY with a JSON array of 3 strings, no explanation.\n\n"
+                            f"Question: {question}"
+                        )
+                    }],
+                    "max_tokens": 80,
+                    "stream": False,
+                }
+            )
+            raw = (kw_resp.choices[0].message.content or "").strip()
+            # Extract JSON array even if model adds surrounding text
+            m = re.search(r'\[.*?\]', raw, re.DOTALL)
+            if m:
+                keywords = json.loads(m.group())
+        except Exception:
+            pass
 
-        # ── Step 3: Build prompt and stream answer ───────────────────────────
-        system = build_system_prompt(kiwix["found"])
+        if not keywords:
+            # Fallback: use question itself as single keyword
+            keywords = [question]
+
+        yield f"data: {json.dumps({'type': 'keywords', 'items': keywords})}\n\n"
+
+        # ── Step 2: Fetch Kiwix articles for all keywords ───────────────────
+        yield f"data: {json.dumps({'type': 'status', 'text': '↳ durchsuche Wikipedia...'})}\n\n"
+
+        kiwix = fetch_articles(keywords, lang=lang, n_articles=3)
 
         if kiwix["found"]:
+            yield f"data: {json.dumps({'type': 'citations', 'items': kiwix['citations']})}\n\n"
+        else:
+            yield f"data: {json.dumps({'type': 'no_results'})}\n\n"
+
+        # ── Step 3: Stream final answer ──────────────────────────────────────
+        if kiwix["found"]:
+            system = build_system_prompt(has_context=True)
             user_content = (
                 f"Wikipedia-Kontext:\n\n{kiwix['context']}\n\n"
                 f"---\n\nFrage: {question}"
             )
         else:
+            system = build_system_prompt(has_context=False)
             user_content = question
 
-        stream_kwargs = {
-            **llm_kwargs,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user",   "content": user_content},
-            ],
-            "stream": True,
-        }
-
         try:
-            for chunk in litellm.completion(**stream_kwargs):
+            for chunk in litellm.completion(**{
+                **llm_kwargs,
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user",   "content": user_content},
+                ],
+                "stream": True,
+            }):
                 token = chunk.choices[0].delta.content
                 if token:
                     yield f"data: {json.dumps({'type': 'token', 'text': token})}\n\n"

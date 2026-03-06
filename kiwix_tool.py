@@ -1,12 +1,8 @@
 """
 KIWIX_BRIDGE kiwix_tool.py — Local Kiwix/Wikipedia lookup
 
-Search strategy (multi-step):
-  1. Extract key terms from the question (German nouns = capitalized, English = noun phrases)
-  2. Search Kiwix for each key term separately
-  3. Rank results: exact title match > partial match > full-text match
-  4. Fetch intro paragraphs of top N unique articles
-  5. Fallback: search with full question text if term extraction yields nothing
+Given a list of keywords (from LLM), searches Kiwix and returns
+article intros + citation info for RAG injection.
 """
 
 import re
@@ -20,89 +16,38 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 KIWIX_URL  = "https://127.0.0.1:450"
 VERIFY_SSL = False
 
-BOOKS = {
-    "de": "wikipedia_de_all",
-    "en": "wikipedia_en_all",
-}
 
-# Words that are capitalized in German but are NOT nouns worth searching for
-_DE_STOPWORDS = frozenset([
-    "Was", "Wer", "Wie", "Wo", "Wann", "Warum", "Welche", "Welcher", "Welches",
-    "Womit", "Wodurch", "Wofür", "Woher", "Wohin", "Wessen",
-    "Ist", "Sind", "War", "Waren", "Hat", "Haben", "Hatte", "Hatten",
-    "Wird", "Werden", "Wurde", "Wurden", "Kann", "Können",
-    "Der", "Die", "Das", "Ein", "Eine", "Einen", "Einem", "Eines",
-    "Ich", "Du", "Er", "Sie", "Es", "Wir", "Ihr",
-    "Mir", "Dir", "Ihm", "Uns", "Euch",
-    "Bitte", "Danke", "Ja", "Nein",
-])
-
-
-def _extract_search_terms(question: str, lang: str) -> List[str]:
-    """
-    Extract meaningful search terms from a question.
-
-    German: nouns are capitalized → grab capitalized words (excluding sentence-start
-            and stopwords). Also grab quoted phrases and multi-word proper nouns.
-    English: grab proper nouns (consecutive capitalized words) + quoted phrases.
-
-    Always also includes the full question as last-resort fallback term.
-    Returns list of terms, most specific first.
-    """
-    terms = []
-
-    # 1. Quoted phrases are always highest priority
-    quoted = re.findall(r'"([^"]+)"', question)
-    terms.extend(quoted)
-
-    # 2. Multi-word capitalized sequences (proper nouns / compound nouns)
-    #    e.g. "Berliner Mauer", "Wolfgang Amadeus Mozart", "European Union"
-    multi = re.findall(r'\b([A-ZÜÄÖ][a-züäöß]+(?:\s+[A-ZÜÄÖ][a-züäöß]+)+)\b', question)
-    for m in multi:
-        if m not in terms:
-            terms.append(m)
-
-    if lang == "de":
-        # 3. Single capitalized German nouns (after removing sentence-start word)
-        words = re.findall(r'\b([A-ZÜÄÖ][a-züäöß]{2,})\b', question)
-        # Skip the very first word (capitalized due to sentence start)
-        first_word = question.split()[0].rstrip("?!.,") if question.split() else ""
-        for w in words:
-            if w == first_word:
-                continue
-            if w in _DE_STOPWORDS:
-                continue
-            if w not in terms:
-                terms.append(w)
-    else:
-        # 4. English: grab capitalized single words (likely proper nouns)
-        words = re.findall(r'\b([A-Z][a-z]{2,})\b', question)
-        first_word = question.split()[0].rstrip("?!.,") if question.split() else ""
-        common_en = frozenset(["What", "Who", "How", "Where", "When", "Why", "Which",
-                               "The", "This", "That", "These", "Those", "Is", "Are",
-                               "Was", "Were", "Has", "Have", "Had", "Can", "Could",
-                               "Will", "Would", "Should", "Please", "Does", "Did"])
-        for w in words:
-            if w == first_word or w in common_en:
-                continue
-            if w not in terms:
-                terms.append(w)
-
-    # 5. Fallback: full question (Kiwix full-text search handles this OK)
-    clean = re.sub(r'[?!]', '', question).strip()
-    if clean not in terms:
-        terms.append(clean)
-
-    return terms
+def _discover_books() -> Dict[str, str]:
+    """Read real book names from /nojs (e.g. wikipedia_de_all_maxi_2026-01)."""
+    try:
+        resp = requests.get(f"{KIWIX_URL}/nojs", verify=VERIFY_SSL, timeout=5)
+        resp.raise_for_status()
+        soup  = BeautifulSoup(resp.text, "html.parser")
+        books = {}
+        for a in soup.find_all("a", href=True):
+            m = re.match(r"^/content/(wikipedia_(de|en)_\S+)", a["href"])
+            if m:
+                books[m.group(2)] = m.group(1).rstrip("/")
+        return books
+    except Exception:
+        return {
+            "de": "wikipedia_de_all_maxi_2026-01",
+            "en": "wikipedia_en_all_maxi_2025-08",
+        }
 
 
-def _search(query: str, lang: str, max_results: int = 5) -> List[Dict]:
-    """Search Kiwix for query, return [{title, path, score}]."""
-    book = BOOKS.get(lang, BOOKS["de"])
+BOOKS: Dict[str, str] = _discover_books()
+
+
+def _search(keyword: str, lang: str, max_results: int = 5) -> List[Dict]:
+    """Search Kiwix for one keyword. Returns [{title, path}]."""
+    book = BOOKS.get(lang)
+    if not book:
+        return []
     try:
         resp = requests.get(
             f"{KIWIX_URL}/search",
-            params={"books.name": book, "pattern": query},
+            params={"books.name": book, "pattern": keyword},
             verify=VERIFY_SSL,
             timeout=5,
         )
@@ -110,49 +55,30 @@ def _search(query: str, lang: str, max_results: int = 5) -> List[Dict]:
     except requests.RequestException:
         return []
 
-    soup    = BeautifulSoup(resp.text, "html.parser")
-    results = []
-    for a in soup.select("a[href*='/A/']")[:max_results]:
+    soup = BeautifulSoup(resp.text, "html.parser")
+    out  = []
+    for a in soup.select(f"a[href*='/content/{book}']")[:max_results]:
         title = a.get_text(strip=True)
         path  = a["href"]
         if title and path:
-            results.append({"title": title, "path": path})
-    return results
+            out.append({"title": title, "path": path})
+    return out
 
 
-def _score_result(result: Dict, search_term: str, question: str) -> int:
-    """
-    Score a search result by relevance.
-    Higher = better match.
-    """
-    title = result["title"].lower()
-    term  = search_term.lower()
-    q     = question.lower()
-    score = 0
-
-    # Exact title match is best
-    if title == term:
-        score += 100
-    # Title starts with term
-    elif title.startswith(term):
-        score += 60
-    # Term is fully contained in title
-    elif term in title:
-        score += 40
-    # All words of term appear in title
-    elif all(w in title for w in term.split()):
-        score += 25
-    # Title words appear in question
-    title_words = set(title.split())
-    q_words     = set(re.findall(r'\b\w{3,}\b', q))
-    overlap     = len(title_words & q_words)
-    score      += overlap * 5
-
-    return score
+def _score(title: str, keyword: str) -> int:
+    """Rank results: exact match > starts with > contains > word overlap."""
+    t = title.lower()
+    k = keyword.lower()
+    if t == k:                               return 100
+    if t.startswith(k):                      return 70
+    if k in t:                               return 50
+    if all(w in t for w in k.split()):       return 30
+    overlap = len(set(t.split()) & set(k.split()))
+    return overlap * 8
 
 
-def _fetch_article(path: str, max_paragraphs: int = 4) -> str:
-    """Fetch article intro text (first N meaningful paragraphs)."""
+def _fetch_intro(path: str, max_paragraphs: int = 4) -> str:
+    """Fetch article and return intro text."""
     try:
         resp = requests.get(f"{KIWIX_URL}{path}", verify=VERIFY_SSL, timeout=10)
         resp.raise_for_status()
@@ -170,74 +96,59 @@ def _fetch_article(path: str, max_paragraphs: int = 4) -> str:
             paragraphs.append(text)
         if len(paragraphs) >= max_paragraphs:
             break
-
     return "\n\n".join(paragraphs)
 
 
-def build_context(question: str, lang: str = "de", n_articles: int = 2) -> Dict:
+def fetch_articles(keywords: List[str], lang: str = "de", n_articles: int = 3) -> Dict:
     """
-    Main entry point. Always fetches from Kiwix.
-
-    Strategy:
-      - Extract key terms from question
-      - Search each term, collect + score all results
-      - Pick top N unique articles by score
-      - Fetch their intro paragraphs
-      - Fallback to other language if nothing found
+    Search Kiwix for each keyword, score and deduplicate results,
+    fetch top N article intros.
 
     Returns:
       {
-        "context":   str,              # formatted text for LLM prompt injection
-        "citations": [{"title", "url"}],
         "found":     bool,
-        "terms":     [str],            # what was searched (for UI debug)
+        "context":   str,   # formatted for LLM prompt
+        "citations": [{"title": str, "url": str}],
       }
     """
-    terms = _extract_search_terms(question, lang)
+    seen: Dict[str, Dict] = {}  # path → best scored result
 
-    def _collect(lang_: str) -> List[Dict]:
-        seen_paths = {}
-        for term in terms:
-            for r in _search(term, lang=lang_):
-                path = r["path"]
-                s    = _score_result(r, term, question)
-                if path not in seen_paths or s > seen_paths[path]["score"]:
-                    seen_paths[path] = {**r, "score": s}
-        return sorted(seen_paths.values(), key=lambda x: -x["score"])
+    for keyword in keywords:
+        for r in _search(keyword, lang=lang):
+            path  = r["path"]
+            score = _score(r["title"], keyword)
+            if path not in seen or score > seen[path]["score"]:
+                seen[path] = {**r, "score": score}
 
-    candidates = _collect(lang)
+        # Also try English if DE finds nothing
+        if not seen and lang == "de":
+            for r in _search(keyword, lang="en"):
+                path  = r["path"]
+                score = _score(r["title"], keyword)
+                if path not in seen or score > seen[path]["score"]:
+                    seen[path] = {**r, "score": score}
 
-    # Fallback: try other language
-    if not candidates:
-        other      = "en" if lang == "de" else "de"
-        candidates = _collect(other)
-        if candidates:
-            lang = other
+    if not seen:
+        return {"found": False, "context": "", "citations": []}
 
-    if not candidates:
-        return {"context": "", "citations": [], "found": False, "terms": terms}
+    top = sorted(seen.values(), key=lambda x: -x["score"])
 
-    # Fetch top N articles
-    articles   = []
-    citations  = []
-    for c in candidates:
+    articles  = []
+    citations = []
+    for c in top:
         if len(articles) >= n_articles:
             break
-        text = _fetch_article(c["path"])
+        text = _fetch_intro(c["path"])
         if not text:
             continue
-        articles.append(f"[Artikel: {c['title']}]\n{text}")
-        citations.append({
-            "title": c["title"],
-            "url":   f"{KIWIX_URL}{c['path']}",
-        })
+        articles.append(f"[Wikipedia: {c['title']}]\n{text}")
+        citations.append({"title": c["title"], "url": f"{KIWIX_URL}{c['path']}"})
 
     if not articles:
-        return {"context": "", "citations": [], "found": False, "terms": terms}
+        return {"found": False, "context": "", "citations": []}
 
     return {
+        "found":     True,
         "context":   "\n\n---\n\n".join(articles),
         "citations": citations,
-        "found":     True,
-        "terms":     terms,
     }
