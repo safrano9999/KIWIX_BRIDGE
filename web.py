@@ -23,6 +23,7 @@ if _venv_site.exists():
 import requests
 from flask import Flask, request, jsonify, Response, stream_with_context, render_template_string
 import litellm
+litellm.drop_params = True   # silently drop unsupported params per model
 from dotenv import load_dotenv
 import re
 from kiwix_tool import fetch_articles
@@ -358,23 +359,24 @@ HTML = r"""<!DOCTYPE html>
 <div id="settings-bar">
   <div class="settings-group">
     <span class="settings-label">Temp</span>
+    <button class="set-btn active" id="t-def" onclick="setSetting('temp',null)">Default</button>
     <button class="set-btn" id="t0"   onclick="setSetting('temp',0)">0.0</button>
     <button class="set-btn" id="t03"  onclick="setSetting('temp',0.3)">0.3</button>
-    <button class="set-btn active" id="t07"  onclick="setSetting('temp',0.7)">0.7</button>
+    <button class="set-btn" id="t07"  onclick="setSetting('temp',0.7)">0.7</button>
     <button class="set-btn" id="t10"  onclick="setSetting('temp',1.0)">1.0</button>
   </div>
   <div class="settings-group">
     <span class="settings-label">Thinking</span>
-    <button class="set-btn active" id="th-off"    onclick="setSetting('thinking','off')">Off</button>
+    <button class="set-btn active" id="th-off"    onclick="setSetting('thinking','off')">Default</button>
     <button class="set-btn"        id="th-low"    onclick="setSetting('thinking','low')">Low</button>
     <button class="set-btn"        id="th-medium" onclick="setSetting('thinking','medium')">Med</button>
     <button class="set-btn"        id="th-high"   onclick="setSetting('thinking','high')">High</button>
   </div>
   <div class="settings-group">
     <span class="settings-label">Max tokens</span>
-    <button class="set-btn" id="tok1k" onclick="setSetting('tokens',1000)">1k</button>
+    <button class="set-btn active" id="tok-def" onclick="setSetting('tokens',null)">Default</button>
     <button class="set-btn" id="tok2k" onclick="setSetting('tokens',2000)">2k</button>
-    <button class="set-btn active" id="tok4k" onclick="setSetting('tokens',4000)">4k</button>
+    <button class="set-btn" id="tok4k" onclick="setSetting('tokens',4000)">4k</button>
     <button class="set-btn" id="tok8k" onclick="setSetting('tokens',8000)">8k</button>
   </div>
 </div>
@@ -401,7 +403,7 @@ HTML = r"""<!DOCTYPE html>
 let registry = {};
 let lang = 'de';
 let activeLink = null;
-let settings = { temp: 0.7, thinking: 'off', tokens: 4000 };
+let settings = { temp: null, thinking: 'off', tokens: null };
 
 function toggleSettings() {
   const bar = document.getElementById('settings-bar');
@@ -413,16 +415,16 @@ function toggleSettings() {
 function setSetting(key, val) {
   settings[key] = val;
   if (key === 'temp') {
-    ['t0','t03','t07','t10'].forEach(id => document.getElementById(id).classList.remove('active'));
-    const map = {'0':'t0', '0.3':'t03', '0.7':'t07', '1':'t10'};
+    ['t-def','t0','t03','t07','t10'].forEach(id => document.getElementById(id).classList.remove('active'));
+    const map = {'null':'t-def', '0':'t0', '0.3':'t03', '0.7':'t07', '1':'t10'};
     const el = document.getElementById(map[String(val)]);
     if (el) el.classList.add('active');
   } else if (key === 'thinking') {
     ['th-off','th-low','th-medium','th-high'].forEach(id => document.getElementById(id).classList.remove('active'));
     document.getElementById('th-' + val).classList.add('active');
   } else if (key === 'tokens') {
-    ['tok1k','tok2k','tok4k','tok8k'].forEach(id => document.getElementById(id).classList.remove('active'));
-    const map = {'1000':'tok1k','2000':'tok2k','4000':'tok4k','8000':'tok8k'};
+    ['tok-def','tok2k','tok4k','tok8k'].forEach(id => document.getElementById(id).classList.remove('active'));
+    const map = {'null':'tok-def', '2000':'tok2k', '4000':'tok4k', '8000':'tok8k'};
     const el = document.getElementById(map[String(val)]);
     if (el) el.classList.add('active');
   }
@@ -556,8 +558,11 @@ async function ask() {
     const resp = await fetch('/api/ask', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ question, model, lang,
-        temperature: settings.temp, thinking: settings.thinking, max_tokens: settings.tokens })
+      body: JSON.stringify(Object.assign(
+        { question, model, lang, thinking: settings.thinking },
+        settings.temp   !== null ? { temperature: settings.temp }    : {},
+        settings.tokens !== null ? { max_tokens:  settings.tokens }  : {}
+      ))
     });
 
     const reader = resp.body.getReader();
@@ -766,9 +771,9 @@ def api_ask():
     question    = data.get("question", "").strip()
     model       = data.get("model", "").strip()
     lang        = data.get("lang", "de")
-    temperature = data.get("temperature", 0.7)
+    temperature = data.get("temperature")   # None = model default
     thinking    = data.get("thinking", "off")
-    max_tokens  = data.get("max_tokens", 4000)
+    max_tokens  = data.get("max_tokens")    # None = model default
 
     if not question or not model:
         return jsonify({"error": "missing question or model"}), 400
