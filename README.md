@@ -13,7 +13,7 @@ Even the smallest local models can answer complex factual questions with precisi
 
 For cloud providers, simply add their API key to `.env` — KIWIX BRIDGE will automatically discover all available models for that provider and populate them in the dropdown. Every provider you add shows up instantly.
 
-Everything goes through **[LiteLLM](https://github.com/BerriAI/litellm)** — a universal adapter that makes every model, local or cloud, speak the same interface. 🔌
+Everything goes through **[LiteLLM](https://github.com/BerriAI/litellm)** — a universal adapter that makes every model, local or cloud, speak the same interface. [Kilocode](https://kilo.ai) is integrated on top to further expand the available model roster beyond LiteLLM's built-in providers. 🔌
 
 The `Native Think` toggle in Settings captures `<think>` reasoning output from thinking-capable models. 🧠
 
