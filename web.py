@@ -69,7 +69,7 @@ def _load_dotenv(filename: str):
 _load_dotenv(".env")
 
 # kiwix_tool must be imported AFTER dotenv so KIWIX_URL env var is available
-from kiwix_tool import fetch_articles
+from kiwix_tool import fetch_articles, KIWIX_CONF as _kiwix_conf, BOOKS as _kiwix_books  # _kiwix_books: List[str]
 
 # ── Provider / model registry ────────────────────────────────────────────────
 _ENV_TO_PROVIDER = {"google": "gemini"}
@@ -163,7 +163,7 @@ HTML = r"""<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kiwix Bridge</title>
+<title>KIWIX_BRIDGE</title>
 <link rel="icon" type="image/svg+xml" href="/static/icon.svg">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -185,12 +185,7 @@ HTML = r"""<!DOCTYPE html>
   #provider-select { min-width: 130px; }
   #model-select    { min-width: 220px; flex: 1; max-width: 380px; }
 
-  .lang-btn {
-    background: #1a1a1a; color: #555; border: 1px solid #2a2a2a;
-    font-family: 'Courier New', monospace; font-size: 11px; padding: 5px 10px;
-    border-radius: 3px; cursor: pointer; transition: all 0.15s;
-  }
-  .lang-btn.active { background: #1e2a3a; color: #7eb8f7; border-color: #2a5298; }
+  #book-select { min-width: 260px; }
 
   #kiwix-indicator {
     margin-left: auto; font-size: 10px; color: #333; display: flex; align-items: center; gap: 5px; white-space: nowrap;
@@ -344,15 +339,16 @@ HTML = r"""<!DOCTYPE html>
 <body>
 
 <div id="topbar">
-  <img id="topbar-logo" src="/static/logo.svg" alt="KIWIX BRIDGE">
+  <img id="topbar-logo" src="/static/logo.svg" alt="KIWIX_BRIDGE">
   <select id="provider-select" onchange="onProviderChange()">
     <option value="">Lade...</option>
   </select>
   <select id="model-select">
     <option value="">— Provider wählen —</option>
   </select>
-  <button class="lang-btn active" id="btn-de" onclick="setLang('de')">DE</button>
-  <button class="lang-btn"        id="btn-en" onclick="setLang('en')">EN</button>
+  <select id="book-select" onchange="setBook(this.value)">
+    <option value="">Lade...</option>
+  </select>
   <button id="settings-toggle" onclick="toggleSettings()">⚙ Settings</button>
   <div id="kiwix-indicator">
     <span id="kiwix-dot"></span> Kiwix offline
@@ -392,7 +388,7 @@ HTML = r"""<!DOCTYPE html>
   <div id="chat-col">
     <div id="results"></div>
     <div id="inputbar">
-      <textarea id="input" placeholder="Frage stellen..." rows="1"></textarea>
+      <textarea id="input" placeholder="Ask a question..." rows="1"></textarea>
       <button id="ask-btn" onclick="ask()">Fragen</button>
     </div>
   </div>
@@ -408,7 +404,7 @@ HTML = r"""<!DOCTYPE html>
 
 <script>
 let registry = {};
-let lang = 'de';
+let book = '';
 let activeLink = null;
 let settings = { temp: null, thinking: 'off', tokens: null, native_think: false };
 
@@ -478,10 +474,22 @@ function onProviderChange() {
   }
 }
 
-function setLang(l) {
-  lang = l;
-  document.getElementById('btn-de').classList.toggle('active', l === 'de');
-  document.getElementById('btn-en').classList.toggle('active', l === 'en');
+function setBook(b) {
+  book = b;
+}
+
+async function loadBooks() {
+  const r = await fetch('/api/books');
+  const books = await r.json();
+  const sel = document.getElementById('book-select');
+  sel.innerHTML = '';
+  for (const b of books) {
+    const opt = document.createElement('option');
+    opt.value = b;
+    opt.textContent = b;
+    sel.appendChild(opt);
+  }
+  if (sel.options.length > 0) setBook(sel.options[0].value);
 }
 
 function getModel() { return document.getElementById('model-select').value; }
@@ -579,7 +587,7 @@ async function ask() {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(Object.assign(
-        { question, model, lang, thinking: settings.thinking, native_think: settings.native_think },
+        { question, model, book, thinking: settings.thinking, native_think: settings.native_think },
         settings.temp   !== null ? { temperature: settings.temp }   : {},
         settings.tokens !== null ? { max_tokens:  settings.tokens } : {}
       ))
@@ -707,6 +715,7 @@ document.getElementById('input').addEventListener('input', function() {
   this.style.height = Math.min(this.scrollHeight, 120) + 'px';
 });
 
+loadBooks();
 loadModels();
 </script>
 </body>
@@ -785,12 +794,17 @@ def api_models():
     return jsonify(build_model_registry())
 
 
+@app.route("/api/books")
+def api_books():
+    return jsonify(_kiwix_books)
+
+
 @app.route("/api/ask", methods=["POST"])
 def api_ask():
     data        = request.get_json()
     question    = data.get("question", "").strip()
     model       = data.get("model", "").strip()
-    lang        = data.get("lang", "de")
+    book        = data.get("book", "")
     temperature  = data.get("temperature")   # None = model default
     thinking     = data.get("thinking", "off")
     max_tokens   = data.get("max_tokens")    # None = model default
@@ -855,7 +869,7 @@ def api_ask():
         # ── Step 2: Fetch Kiwix articles for all keywords ───────────────────
         yield f"data: {json.dumps({'type': 'status', 'text': '↳ durchsuche Wikipedia...'})}\n\n"
 
-        kiwix = fetch_articles(keywords, lang=lang, n_articles=3)
+        kiwix = fetch_articles(keywords, book=book, n_articles=3)
 
         if kiwix["found"]:
             yield f"data: {json.dumps({'type': 'citations', 'items': kiwix['citations']})}\n\n"
@@ -933,8 +947,8 @@ def api_ask():
 
 
 if __name__ == "__main__":
-    PORT = int(os.environ.get("KIWIX_BRIDGE_PORT", 7710))
-    HOST = os.environ.get("KIWIX_BRIDGE_HOST", "127.0.0.1")
+    PORT = int(os.environ.get("KIWIX_BRIDGE_PORT", _kiwix_conf.get("WEB_PORT", 7710)))
+    HOST = os.environ.get("KIWIX_BRIDGE_HOST", _kiwix_conf.get("WEB_HOST", "127.0.0.1"))
     reg  = build_model_registry()
     print(f"[KIWIX_BRIDGE] http://{HOST}:{PORT}")
     print(f"[KIWIX_BRIDGE] Kiwix: https://127.0.0.1:450")

@@ -1,4 +1,4 @@
-# 🐦‍🔥 KIWIX BRIDGE
+# 🐦‍🔥 KIWIX_BRIDGE
 ![Example Image](KIWIX_BRIDGE.png)
 
 > **Wikipedia's facts + AI's intelligence — fully offline, brutally accurate.**
@@ -25,9 +25,9 @@ The `Native Think` toggle in Settings captures `<think>` reasoning output from t
 
 ## 📖 What is Kiwix and what is KIWIX_BRIDGE?
 
-[Kiwix](https://www.kiwix.org/) is an **offline Wikipedia reader** — it downloads the entire Wikipedia (all languages, all articles) and serves it locally as a fast HTTP server. No internet required. No rate limits. No censorship.
+[Kiwix](https://www.kiwix.org/) is an **offline encyclopedia reader** — it downloads Wikipedia in any language and serves it locally as a fast HTTP server. No internet required. No rate limits. No censorship.
 
-KIWIX BRIDGE connects to your local Kiwix instance and uses it as a **knowledge retrieval engine**:
+KIWIX_BRIDGE connects to your local Kiwix instance and uses it as a **knowledge retrieval engine**. It auto-detects all available ZIM books and lists them in a dropdown — Wikipedia in any language, or any other offline encyclopedia you have installed.
 
 ```
 Your Question
@@ -63,9 +63,9 @@ This means even small Ollama models become genuinely useful for factual Q&A — 
 
 ### 1. Prerequisites
 
-- **Kiwix** running locally at `https://127.0.0.1:450/` with a Wikipedia ZIM file
+- **Kiwix** running locally at `https://127.0.0.1:450/` with one or more ZIM files (Wikipedia, Wiktionary, or any other offline encyclopedia)
   - Download Kiwix: [kiwix.org/en/download](https://www.kiwix.org/en/download/)
-  - Download Wikipedia ZIMs: [library.kiwix.org](https://library.kiwix.org/)
+  - Download ZIM files: [library.kiwix.org](https://library.kiwix.org/)
 - **Python 3.9+**
 - At least one of: API keys for cloud providers, or Ollama running locally
 

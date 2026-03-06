@@ -31,37 +31,36 @@ def _read_conf(path: Path) -> dict:
 
 
 _CONF = _read_conf(Path(__file__).parent / "kiwix.conf")
+KIWIX_CONF = _CONF  # exposed for web.py
 
 # Adapt KIWIX_URL in kiwix.conf to match your Kiwix server
 KIWIX_URL  = _CONF.get("KIWIX_URL", "https://127.0.0.1:450")
 VERIFY_SSL = False
 
 
-def _discover_books() -> Dict[str, str]:
-    """Read real book names from /nojs (e.g. wikipedia_de_all_maxi_2026-01)."""
+def _discover_books() -> List[str]:
+    """Discover all ZIM books available in Kiwix — any type, any language."""
     try:
         resp = requests.get(f"{KIWIX_URL}/nojs", verify=VERIFY_SSL, timeout=5)
         resp.raise_for_status()
         soup  = BeautifulSoup(resp.text, "html.parser")
-        books = {}
+        seen  = []
         for a in soup.find_all("a", href=True):
-            m = re.match(r"^/content/(wikipedia_(de|en)_\S+)", a["href"])
+            m = re.match(r"^/content/([^/?#\s]+)", a["href"])
             if m:
-                books[m.group(2)] = m.group(1).rstrip("/")
-        return books
+                name = m.group(1).rstrip("/")
+                if name not in seen:
+                    seen.append(name)
+        return sorted(seen)
     except Exception:
-        return {
-            "de": "wikipedia_de_all_maxi_2026-01",
-            "en": "wikipedia_en_all_maxi_2025-08",
-        }
+        return []
 
 
-BOOKS: Dict[str, str] = _discover_books()
+BOOKS: List[str] = _discover_books()  # exposed for web.py (/api/books)
 
 
-def _search(keyword: str, lang: str, max_results: int = 5) -> List[Dict]:
-    """Search Kiwix for one keyword. Returns [{title, path}]."""
-    book = BOOKS.get(lang)
+def _search(keyword: str, book: str, max_results: int = 5) -> List[Dict]:
+    """Search Kiwix for one keyword in the given ZIM book. Returns [{title, path}]."""
     if not book:
         return []
     try:
@@ -102,13 +101,12 @@ def _base_forms(keyword: str) -> List[str]:
     return forms
 
 
-def _direct_lookup(keyword: str, lang: str) -> Optional[Dict]:
+def _direct_lookup(keyword: str, book: str) -> Optional[Dict]:
     """
     Try to fetch an article by exact title via /content/{book}/A/{title}.
     Also tries uninflected base forms (e.g. 'Wiens' → 'Wien').
     Returns {title, path, score} or None.
     """
-    book = BOOKS.get(lang)
     if not book:
         return None
     for form in _base_forms(keyword):
@@ -158,9 +156,9 @@ def _fetch_intro(path: str, max_paragraphs: int = 4) -> str:
     return "\n\n".join(paragraphs)
 
 
-def fetch_articles(keywords: List[str], lang: str = "de", n_articles: int = 3) -> Dict:
+def fetch_articles(keywords: List[str], book: str, n_articles: int = 3) -> Dict:
     """
-    Search Kiwix for each keyword, score and deduplicate results,
+    Search Kiwix for each keyword in the given ZIM book, score and deduplicate results,
     fetch top N article intros.
 
     Returns:
@@ -174,26 +172,16 @@ def fetch_articles(keywords: List[str], lang: str = "de", n_articles: int = 3) -
 
     for keyword in keywords:
         # 1. Try direct article title fetch first (score 150 — beats all search results)
-        direct = _direct_lookup(keyword, lang=lang)
-        if direct is None and lang == "de":
-            direct = _direct_lookup(keyword, lang="en")
+        direct = _direct_lookup(keyword, book=book)
         if direct:
             seen[direct["path"]] = direct
 
         # 2. Fulltext search as fallback / complement
-        for r in _search(keyword, lang=lang):
+        for r in _search(keyword, book=book):
             path  = r["path"]
             score = _score(r["title"], keyword)
             if path not in seen or score > seen[path]["score"]:
                 seen[path] = {**r, "score": score}
-
-        # 3. Also try English if DE search finds nothing
-        if not seen and lang == "de":
-            for r in _search(keyword, lang="en"):
-                path  = r["path"]
-                score = _score(r["title"], keyword)
-                if path not in seen or score > seen[path]["score"]:
-                    seen[path] = {**r, "score": score}
 
     if not seen:
         return {"found": False, "context": "", "citations": []}
@@ -208,7 +196,7 @@ def fetch_articles(keywords: List[str], lang: str = "de", n_articles: int = 3) -
         text = _fetch_intro(c["path"])
         if not text:
             continue
-        articles.append(f"[Wikipedia: {c['title']}]\n{text}")
+        articles.append(f"[Kiwix: {c['title']}]\n{text}")
         citations.append({"title": c["title"], "url": f"{KIWIX_URL}{c['path']}"})
 
     if not articles:
