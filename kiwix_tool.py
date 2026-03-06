@@ -5,6 +5,7 @@ Given a list of keywords (from LLM), searches Kiwix and returns
 article intros + citation info for RAG injection.
 """
 
+import os
 import re
 import urllib.parse
 import requests
@@ -14,7 +15,8 @@ from typing import List, Dict, Optional
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-KIWIX_URL  = "https://127.0.0.1:450"
+# Set KIWIX_URL in your .env — default works for a standard local Kiwix install
+KIWIX_URL  = os.getenv("KIWIX_URL", "https://127.0.0.1:450")
 VERIFY_SSL = False
 
 
@@ -66,25 +68,42 @@ def _search(keyword: str, lang: str, max_results: int = 5) -> List[Dict]:
     return out
 
 
+def _base_forms(keyword: str) -> List[str]:
+    """
+    Generate candidate base/uninflected forms by stripping common
+    German and English inflectional suffixes.
+    Only applies to single words; multi-word phrases are returned as-is.
+    """
+    forms = [keyword]
+    if " " in keyword:
+        return forms
+    for suffix in ("es", "s", "en", "em", "er", "e"):
+        if keyword.lower().endswith(suffix) and len(keyword) - len(suffix) >= 3:
+            base = keyword[:-len(suffix)]
+            if base not in forms:
+                forms.append(base)
+    return forms
+
+
 def _direct_lookup(keyword: str, lang: str) -> Optional[Dict]:
     """
     Try to fetch an article by exact title via /content/{book}/A/{title}.
-    This bypasses Kiwix fulltext search and goes straight to the article.
+    Also tries uninflected base forms (e.g. 'Wiens' → 'Wien').
     Returns {title, path, score} or None.
     """
     book = BOOKS.get(lang)
     if not book:
         return None
-    # MediaWiki uses underscores and capitalises first letter
-    title = keyword.strip().replace(" ", "_")
-    title = title[0].upper() + title[1:] if title else title
-    path = f"/content/{book}/A/{urllib.parse.quote(title, safe='')}"
-    try:
-        resp = requests.get(f"{KIWIX_URL}{path}", verify=VERIFY_SSL, timeout=5)
-        if resp.status_code == 200 and len(resp.text) > 500:
-            return {"title": keyword, "path": path, "score": 150}  # beats all search scores
-    except requests.RequestException:
-        pass
+    for form in _base_forms(keyword):
+        title = form.strip().replace(" ", "_")
+        title = title[0].upper() + title[1:] if title else title
+        path = f"/content/{book}/A/{urllib.parse.quote(title, safe='')}"
+        try:
+            resp = requests.get(f"{KIWIX_URL}{path}", verify=VERIFY_SSL, timeout=5)
+            if resp.status_code == 200 and len(resp.text) > 500:
+                return {"title": form, "path": path, "score": 150}
+        except requests.RequestException:
+            pass
     return None
 
 

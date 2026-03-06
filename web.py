@@ -26,7 +26,6 @@ import litellm
 litellm.drop_params = True   # silently drop unsupported params per model
 from dotenv import load_dotenv
 import re
-from kiwix_tool import fetch_articles
 
 logging.basicConfig(level=logging.WARNING)
 
@@ -68,6 +67,9 @@ def _load_dotenv(filename: str):
         load_dotenv(boss, override=False)
 
 _load_dotenv(".env")
+
+# kiwix_tool must be imported AFTER dotenv so KIWIX_URL env var is available
+from kiwix_tool import fetch_articles
 
 # ── Provider / model registry ────────────────────────────────────────────────
 _ENV_TO_PROVIDER = {"google": "gemini"}
