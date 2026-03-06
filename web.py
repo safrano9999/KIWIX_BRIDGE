@@ -218,6 +218,9 @@ HTML = r"""<!DOCTYPE html>
     font-size: 10px; color: #3a5a3a; border: 1px solid #1e3a1e;
     padding: 1px 7px; border-radius: 10px; background: #0d1a0d;
   }
+  .model-tag {
+    font-size: 10px; color: #2a3a4a; margin-left: 28px; margin-top: 2px;
+  }
 
   /* Citations */
   .citations { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
@@ -420,6 +423,12 @@ async function ask() {
   qText.textContent = question;
   qRow.appendChild(qText);
   qBlock.appendChild(qRow);
+
+  // Model tag
+  const modelTag = document.createElement('div');
+  modelTag.className = 'model-tag';
+  modelTag.textContent = model;
+  qBlock.appendChild(modelTag);
 
   // Keywords row (filled later)
   const kwRow = document.createElement('div');
