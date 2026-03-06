@@ -10,13 +10,30 @@ import re
 import urllib.parse
 import requests
 import urllib3
+from pathlib import Path
 from bs4 import BeautifulSoup
 from typing import List, Dict, Optional
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# Set KIWIX_URL in your .env — default works for a standard local Kiwix install
-KIWIX_URL  = os.getenv("KIWIX_URL", "https://127.0.0.1:450")
+
+def _read_conf(path: Path) -> dict:
+    """Parse a simple KEY=value config file."""
+    conf = {}
+    if not path.exists():
+        return conf
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            k, _, v = line.partition("=")
+            conf[k.strip()] = v.strip()
+    return conf
+
+
+_CONF = _read_conf(Path(__file__).parent / "kiwix.conf")
+
+# Adapt KIWIX_URL in kiwix.conf to match your Kiwix server
+KIWIX_URL  = _CONF.get("KIWIX_URL", "https://127.0.0.1:450")
 VERIFY_SSL = False
 
 

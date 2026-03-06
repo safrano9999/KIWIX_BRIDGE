@@ -80,14 +80,22 @@ python3 bin/setup.py
 
 This creates a local `venv/` and installs all dependencies.
 
-### 3. Configure
+### 3. Configure Kiwix URL
+
+Edit **`kiwix.conf`** — adapt the URL to your Kiwix server:
+
+```ini
+KIWIX_URL=https://127.0.0.1:450
+```
+
+### 4. Configure AI providers
 
 ```bash
 cp .env.example .env
 nano .env
 ```
 
-### 4. Run
+### 5. Run
 
 ```bash
 python web.py
@@ -100,9 +108,6 @@ Open **http://127.0.0.1:7710** in your browser.
 ## 🔑 Configuration (`.env`)
 
 ```env
-# Kiwix server — adapt if yours runs on a different host or port
-KIWIX_URL=https://127.0.0.1:450
-
 # Cloud providers — add whichever you have
 ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-...
