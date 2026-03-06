@@ -29,6 +29,32 @@ from kiwix_tool import fetch_articles
 
 logging.basicConfig(level=logging.WARNING)
 
+# ── SKILLS.md parser ─────────────────────────────────────────────────────────
+
+def _load_skills(path: Path) -> Dict[str, str]:
+    """
+    Parse SKILLS.md — sections start with '## skill_name', content follows.
+    Returns {"skill_name": "content string", ...}
+    """
+    skills: Dict[str, str] = {}
+    if not path.exists():
+        return skills
+    current_key  = None
+    current_lines: list = []
+    for line in path.read_text().splitlines():
+        if line.startswith("## "):
+            if current_key:
+                skills[current_key] = "\n".join(current_lines).strip()
+            current_key   = line[3:].strip()
+            current_lines = []
+        elif current_key is not None:
+            current_lines.append(line)
+    if current_key:
+        skills[current_key] = "\n".join(current_lines).strip()
+    return skills
+
+SKILLS = _load_skills(_DIR / "SKILLS.md")
+
 # ── Env loading ──────────────────────────────────────────────────────────────
 _DIR = Path(__file__).parent
 
@@ -123,21 +149,8 @@ def build_model_registry() -> Dict[str, List[str]]:
 
 # ── System prompt (RAG style — works with any model size) ────────────────────
 def build_system_prompt(has_context: bool) -> str:
-    if has_context:
-        return (
-            "Du bist ein präziser Fakten-Assistent. Du bekommst Wikipedia-Artikel als Kontext "
-            "und beantwortest Fragen ausschließlich darauf basierend.\n\n"
-            "REGELN:\n"
-            "- Stütze dich NUR auf die bereitgestellten Artikel — keine eigenen Behauptungen\n"
-            "- Wenn die Artikel die Frage nicht beantworten können, sage das klar\n"
-            "- Antworte in der Sprache der gestellten Frage\n"
-            "- Fasse dich präzise und klar — keine Füllsätze"
-        )
-    else:
-        return (
-            "Du bist ein hilfreicher Assistent. "
-            "Antworte präzise. Bei unsicheren Fakten weise darauf hin dass du dir nicht sicher bist."
-        )
+    key = "system_with_context" if has_context else "system_no_context"
+    return SKILLS.get(key, "You are a helpful assistant.")
 
 # ── Flask ────────────────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -525,14 +538,7 @@ def api_ask():
                     **llm_kwargs,
                     "messages": [{
                         "role": "user",
-                        "content": (
-                            "For a university research project, find exactly the 3 most relevant Wikipedia articles "
-                            "(English or German) that together would allow a student to answer the following question "
-                            "perfectly and completely. "
-                            "Name the 3 Wikipedia article titles as precise search keywords. "
-                            "Reply ONLY with a JSON array of 3 strings, no explanation.\n\n"
-                            f"Question: {question}"
-                        )
+                        "content": SKILLS.get("keyword_extraction", "Name 3 Wikipedia articles for: {question}").replace("{question}", question)
                     }],
                     "max_tokens": 80,
                     "stream": False,
