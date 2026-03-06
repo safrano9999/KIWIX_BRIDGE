@@ -63,7 +63,7 @@ This means even small Ollama models become genuinely useful for factual Q&A — 
 
 ### 1. Prerequisites
 
-- **Kiwix** running locally at `https://127.0.0.1:450/` with one or more ZIM files (Wikipedia, Wiktionary, or any other offline encyclopedia)
+- **Kiwix** running locally at your host for example at `https://127.0.0.1:450/` with one or more ZIM files (Wikipedia, Wiktionary, or any other offline encyclopedia)
   - Download Kiwix: [kiwix.org/en/download](https://www.kiwix.org/en/download/)
   - Download ZIM files: [library.kiwix.org](https://library.kiwix.org/)
 - **Python 3.9+**
