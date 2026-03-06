@@ -189,16 +189,19 @@ HTML = r"""<!DOCTYPE html>
   .lang-btn.active { background: #1e2a3a; color: #7eb8f7; border-color: #2a5298; }
 
   #kiwix-indicator {
-    margin-left: auto; font-size: 10px; color: #333; display: flex; align-items: center; gap: 5px;
-    white-space: nowrap;
+    margin-left: auto; font-size: 10px; color: #333; display: flex; align-items: center; gap: 5px; white-space: nowrap;
   }
   #kiwix-dot { width: 6px; height: 6px; border-radius: 50%; background: #2a2a2a; display: inline-block; }
   #kiwix-dot.on { background: #5cb85c; box-shadow: 0 0 5px #5cb85c; }
 
-  /* Results */
+  /* Body: chat left + wiki panel right */
+  #body { display: flex; flex: 1; overflow: hidden; }
+
+  /* Left: chat */
+  #chat-col { display: flex; flex-direction: column; flex: 1; overflow: hidden; min-width: 0; }
   #results { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 28px; }
 
-  .qa-block { display: flex; flex-direction: column; gap: 10px; }
+  .qa-block { display: flex; flex-direction: column; gap: 8px; }
 
   .q-row { display: flex; gap: 10px; align-items: flex-start; }
   .q-label { font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px; padding-top: 2px; min-width: 18px; }
@@ -206,19 +209,26 @@ HTML = r"""<!DOCTYPE html>
 
   .a-row { display: flex; gap: 10px; align-items: flex-start; }
   .a-label { font-size: 10px; color: #444; text-transform: uppercase; letter-spacing: 1px; padding-top: 2px; min-width: 18px; }
-  .a-body  { flex: 1; }
+  .a-body  { flex: 1; min-width: 0; }
   .a-text  { color: #e0e0e0; font-size: 13px; line-height: 1.7; white-space: pre-wrap; }
 
-  .citations {
-    margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  /* Keywords row */
+  .kw-row { display: flex; flex-wrap: wrap; gap: 5px; margin-left: 28px; }
+  .kw-chip {
+    font-size: 10px; color: #3a5a3a; border: 1px solid #1e3a1e;
+    padding: 1px 7px; border-radius: 10px; background: #0d1a0d;
   }
+
+  /* Citations */
+  .citations { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
   .cite-label { font-size: 10px; color: #3a3a3a; }
   .cite-link {
     font-size: 11px; color: #3d6b6b; text-decoration: none;
-    border: 1px solid #1e3a3a; padding: 2px 8px; border-radius: 2px;
+    border: 1px solid #1e3a3a; padding: 2px 8px; border-radius: 2px; cursor: pointer;
     transition: all 0.15s;
   }
   .cite-link:hover { color: #5cc8c8; border-color: #2a5a5a; background: #0d1e1e; }
+  .cite-link.active { color: #7eb8f7; border-color: #2a5298; background: #0d1a2a; }
 
   .copy-btn {
     margin-left: auto; background: none; color: #333; border: 1px solid #222;
@@ -228,8 +238,7 @@ HTML = r"""<!DOCTYPE html>
   .copy-btn:hover { color: #7eb8f7; border-color: #2a5298; }
   .copy-btn.copied { color: #5cb85c; border-color: #3a6b3a; }
 
-  .no-kiwix { font-size: 11px; color: #2a4040; font-style: italic; margin-top: 6px; }
-
+  .no-kiwix { font-size: 11px; color: #2a4040; font-style: italic; margin-top: 4px; }
   .searching { color: #3d5a3d; font-size: 11px; font-style: italic; }
   @keyframes blink { 0%,100%{opacity:0.3} 50%{opacity:1} }
   .cursor { animation: blink 0.8s infinite; }
@@ -254,6 +263,28 @@ HTML = r"""<!DOCTYPE html>
   #ask-btn:hover { background: #2a5298; }
   #ask-btn:disabled { opacity: 0.35; cursor: default; }
 
+  /* Right: wiki panel */
+  #wiki-panel {
+    width: 0; flex-shrink: 0; border-left: none;
+    display: flex; flex-direction: column; overflow: hidden;
+    transition: width 0.25s ease, border-color 0.25s;
+    background: #111;
+  }
+  #wiki-panel.open { width: 42%; border-left: 1px solid #2a2a2a; }
+
+  #wiki-bar {
+    padding: 8px 12px; border-bottom: 1px solid #222;
+    display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+    background: #0d0d0d;
+  }
+  #wiki-title { font-size: 11px; color: #555; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #wiki-close {
+    background: none; border: none; color: #444; cursor: pointer;
+    font-size: 16px; line-height: 1; padding: 0 2px;
+  }
+  #wiki-close:hover { color: #888; }
+  #wiki-frame { flex: 1; border: none; background: #fff; }
+
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: #0d0d0d; }
   ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
@@ -276,16 +307,28 @@ HTML = r"""<!DOCTYPE html>
   </div>
 </div>
 
-<div id="results"></div>
+<div id="body">
+  <div id="chat-col">
+    <div id="results"></div>
+    <div id="inputbar">
+      <textarea id="input" placeholder="Frage stellen..." rows="1"></textarea>
+      <button id="ask-btn" onclick="ask()">Fragen</button>
+    </div>
+  </div>
 
-<div id="inputbar">
-  <textarea id="input" placeholder="Frage stellen..." rows="1"></textarea>
-  <button id="ask-btn" onclick="ask()">Fragen</button>
+  <div id="wiki-panel">
+    <div id="wiki-bar">
+      <span id="wiki-title">—</span>
+      <button id="wiki-close" onclick="closeWiki()">✕</button>
+    </div>
+    <iframe id="wiki-frame" src="about:blank"></iframe>
+  </div>
 </div>
 
 <script>
 let registry = {};
 let lang = 'de';
+let activeLink = null;
 
 async function loadModels() {
   const r = await fetch('/api/models');
@@ -293,10 +336,7 @@ async function loadModels() {
   const psel = document.getElementById('provider-select');
   psel.innerHTML = '';
   const providers = Object.keys(registry).sort();
-  if (!providers.length) {
-    psel.innerHTML = '<option>Keine API Keys</option>';
-    return;
-  }
+  if (!providers.length) { psel.innerHTML = '<option>Keine API Keys</option>'; return; }
   for (const p of providers) {
     const opt = document.createElement('option');
     opt.value = p;
@@ -332,6 +372,21 @@ function flashKiwix() {
   setTimeout(() => dot.classList.remove('on'), 2500);
 }
 
+function openWiki(url, title, linkEl) {
+  document.getElementById('wiki-frame').src = url;
+  document.getElementById('wiki-title').textContent = title;
+  document.getElementById('wiki-panel').classList.add('open');
+  if (activeLink) activeLink.classList.remove('active');
+  activeLink = linkEl;
+  if (linkEl) linkEl.classList.add('active');
+}
+
+function closeWiki() {
+  document.getElementById('wiki-panel').classList.remove('open');
+  document.getElementById('wiki-frame').src = 'about:blank';
+  if (activeLink) { activeLink.classList.remove('active'); activeLink = null; }
+}
+
 function copyText(text, btn) {
   navigator.clipboard.writeText(text).then(() => {
     btn.textContent = '✓ Kopiert';
@@ -353,10 +408,10 @@ async function ask() {
 
   const resultsEl = document.getElementById('results');
 
-  // Question row
   const qBlock = document.createElement('div');
   qBlock.className = 'qa-block';
 
+  // Question
   const qRow = document.createElement('div');
   qRow.className = 'q-row';
   qRow.innerHTML = '<span class="q-label">F</span>';
@@ -366,7 +421,12 @@ async function ask() {
   qRow.appendChild(qText);
   qBlock.appendChild(qRow);
 
-  // Answer row
+  // Keywords row (filled later)
+  const kwRow = document.createElement('div');
+  kwRow.className = 'kw-row';
+  qBlock.appendChild(kwRow);
+
+  // Answer
   const aRow = document.createElement('div');
   aRow.className = 'a-row';
   aRow.innerHTML = '<span class="a-label">A</span>';
@@ -374,7 +434,7 @@ async function ask() {
   aBody.className = 'a-body';
   const aText = document.createElement('div');
   aText.className = 'a-text';
-  aText.innerHTML = '<span class="searching">↳ überlege...</span>';
+  aText.innerHTML = '<span class="searching">↳ suche Keywords...</span>';
   aBody.appendChild(aText);
   aRow.appendChild(aBody);
   qBlock.appendChild(aRow);
@@ -397,7 +457,7 @@ async function ask() {
     let started = false;
 
     while (true) {
-      const { done, value } = reader.read ? await reader.read() : { done: true };
+      const { done, value } = await reader.read();
       if (done) break;
       for (const line of decoder.decode(value).split('\n')) {
         if (!line.startsWith('data: ')) continue;
@@ -408,25 +468,36 @@ async function ask() {
 
         if (obj.type === 'status') {
           aText.innerHTML = '<span class="searching">' + obj.text + '</span>';
+
         } else if (obj.type === 'keywords') {
-          const kws = (obj.items || []).join(' · ');
-          aText.innerHTML = '<span class="searching">↳ ' + kws + '...</span>';
+          // Show keywords as chips below the question
+          kwRow.innerHTML = '';
+          for (const kw of (obj.items || [])) {
+            const chip = document.createElement('span');
+            chip.className = 'kw-chip';
+            chip.textContent = kw;
+            kwRow.appendChild(chip);
+          }
+          aText.innerHTML = '<span class="searching">↳ durchsuche Wikipedia...</span>';
+
         } else if (obj.type === 'citations') {
           citations = obj.items;
           if (citations.length) flashKiwix();
-          const terms = (obj.terms || []).slice(0, 3).join(' · ');
-          aText.innerHTML = '<span class="searching">↳ ' + terms + '...</span>';
+          aText.innerHTML = '<span class="searching">↳ formuliere Antwort...<span class="cursor"> ▋</span></span>';
+
         } else if (obj.type === 'token') {
           if (!started) { aText.textContent = ''; started = true; }
           fullText += obj.text;
           aText.textContent = fullText;
           resultsEl.scrollTop = resultsEl.scrollHeight;
+
         } else if (obj.type === 'no_results') {
           const note = document.createElement('div');
           note.className = 'no-kiwix';
           note.textContent = '↳ Kiwix: keine Treffer — Antwort aus Modellwissen';
           aBody.insertBefore(note, aText);
           aText.innerHTML = '<span class="cursor">▋</span>';
+
         } else if (obj.type === 'error') {
           aText.textContent = 'Fehler: ' + obj.text;
           aText.style.color = '#d9534f';
@@ -446,9 +517,8 @@ async function ask() {
         for (const c of citations) {
           const a = document.createElement('a');
           a.className = 'cite-link';
-          a.href = c.url;
-          a.target = '_blank';
           a.textContent = c.title;
+          a.onclick = (e) => { e.preventDefault(); openWiki(c.url, c.title, a); };
           citRow.appendChild(a);
         }
       }
@@ -472,7 +542,6 @@ async function ask() {
   input.focus();
 }
 
-// Enter → send, Shift+Enter → newline
 document.getElementById('input').addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(); }
 });
