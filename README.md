@@ -7,7 +7,7 @@ Even the smallest local models can answer complex factual questions with precisi
 
 ---
 
-## 🦙 Zero config local + optional cloud
+## 🦙 Zero config local OLLAMA + optional cloud all providers LITELLM
 
 **No API key needed to get started.** Install [Ollama](https://ollama.com), pull any model, and KIWIX BRIDGE auto-discovers it at startup — all local models appear in the provider dropdown automatically. No config, no keys, no internet. 🏠
 
