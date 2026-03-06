@@ -6,6 +6,8 @@ would allow a student to answer the following question perfectly and completely.
 Rules:
 - Always prefer the MAIN subject article over subtopic or list articles
 - Use the exact Wikipedia article title as it would appear in the encyclopedia
+- Nouns: use nominative singular (uninflected base form)
+- Verbs: use infinitive
 - Prefer German titles for German questions, English titles for English questions
 - Reply ONLY with a JSON array of exactly 3 strings, no explanation
 
