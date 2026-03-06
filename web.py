@@ -161,6 +161,7 @@ HTML = r"""<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kiwix Bridge</title>
+<link rel="icon" type="image/svg+xml" href="/static/icon.svg">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Courier New', monospace; background: #0d0d0d; color: #e0e0e0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
@@ -170,7 +171,7 @@ HTML = r"""<!DOCTYPE html>
     background: #111; border-bottom: 1px solid #2a2a2a;
     padding: 10px 16px; display: flex; align-items: center; gap: 12px; flex-shrink: 0;
   }
-  #topbar-title { font-size: 13px; color: #7eb8f7; letter-spacing: 2px; text-transform: uppercase; margin-right: 8px; white-space: nowrap; }
+  #topbar-logo { height: 36px; width: auto; display: block; }
 
   select {
     background: #1a1a1a; color: #ccc; border: 1px solid #333;
@@ -296,7 +297,7 @@ HTML = r"""<!DOCTYPE html>
 <body>
 
 <div id="topbar">
-  <span id="topbar-title">KIWIX BRIDGE</span>
+  <img id="topbar-logo" src="/static/logo.svg" alt="KIWIX BRIDGE">
   <select id="provider-select" onchange="onProviderChange()">
     <option value="">Lade...</option>
   </select>
@@ -573,8 +574,10 @@ def _build_llm_kwargs(model: str, api_key: str) -> Dict:
     if model.startswith("ollama/"):
         kwargs["api_base"] = "http://localhost:11434"
     if model.startswith("kilocode/"):
-        kwargs["model"]    = f"openai/{model.split('/', 1)[1]}"
-        kwargs["api_base"] = "https://api.kilo.ai/api/gateway/"
+        raw_id = model[len("kilocode/"):]          # e.g. "openai/gpt-5.4-pro"
+        # LiteLLM needs "openai/X" prefix; if ID already has provider prefix, keep as-is
+        kwargs["model"]    = raw_id if raw_id.startswith("openai/") else f"openai/{raw_id}"
+        kwargs["api_base"] = "https://api.kilo.ai/api/gateway"   # no trailing slash
         kwargs["api_key"]  = os.getenv("KILOCODE_API_KEY", api_key)
     return kwargs
 
