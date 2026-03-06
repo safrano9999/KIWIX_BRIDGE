@@ -30,7 +30,7 @@ def _read_conf(path: Path) -> dict:
     return conf
 
 
-_CONF = _read_conf(Path(__file__).parent / "kiwix.conf")
+_CONF = _read_conf(Path(__file__).parent.parent / "kiwix.conf")
 KIWIX_CONF = _CONF  # exposed for web.py
 
 # Adapt KIWIX_URL in kiwix.conf to match your Kiwix server

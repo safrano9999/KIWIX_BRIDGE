@@ -90,10 +90,10 @@ Copy `.env.example` to `.env` and add your API keys.
 ### 5. Run
 
 ```bash
-python web.py
+python bin/web.py
 ```
 
-Open **http://127.0.0.1:7710** in your browser.
+Open [http://127.0.0.1:7710](http://127.0.0.1:7710) in your browser — port configurable via `WEB_PORT` in `kiwix.conf`.
 
 ---
 

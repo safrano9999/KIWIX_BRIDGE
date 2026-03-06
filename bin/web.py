@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import List, Dict
 
 # ── venv sys.path trick — must come before any third-party imports ────────────
-_venv_site = Path(__file__).parent / "venv" / "lib"
+_venv_site = Path(__file__).parent.parent / "venv" / "lib"
 if _venv_site.exists():
     for _p in _venv_site.glob("python*/site-packages"):
         if str(_p) not in sys.path:
@@ -53,10 +53,10 @@ def _load_skills(path: Path) -> Dict[str, str]:
         skills[current_key] = "\n".join(current_lines).strip()
     return skills
 
-SKILLS = _load_skills(Path(__file__).parent / "SKILLS.md")
+SKILLS = _load_skills(Path(__file__).parent.parent / "SKILLS.md")
 
 # ── Env loading ──────────────────────────────────────────────────────────────
-_DIR = Path(__file__).parent
+_DIR = Path(__file__).parent.parent
 
 def _load_dotenv(filename: str):
     own  = _DIR / filename
