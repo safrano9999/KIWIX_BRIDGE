@@ -10,17 +10,17 @@ import os
 import sys
 import json
 import logging
-import requests
 from pathlib import Path
 from typing import List, Dict
 
-# ── venv sys.path trick ──────────────────────────────────────────────────────
+# ── venv sys.path trick — must come before any third-party imports ────────────
 _venv_site = Path(__file__).parent / "venv" / "lib"
 if _venv_site.exists():
     for _p in _venv_site.glob("python*/site-packages"):
         if str(_p) not in sys.path:
             sys.path.insert(0, str(_p))
 
+import requests
 from flask import Flask, request, jsonify, Response, stream_with_context, render_template_string
 import litellm
 from dotenv import load_dotenv
