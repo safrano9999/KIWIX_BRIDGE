@@ -17,8 +17,6 @@ curl -fsSL https://ollama.com/install.sh | sh
 
 # Pull a model (tiny but capable with RAG)
 ollama pull qwen3.5:0.8b    # 0.8 GB — fits anywhere
-ollama pull mistral          # 4 GB  — great quality
-ollama pull deepseek-r1      # with native <think> reasoning
 ```
 
 KIWIX BRIDGE **auto-detects Ollama** at startup — no config needed. Just start Ollama and it appears in the provider dropdown instantly. The `Native Think` toggle in Settings captures `<think>` reasoning output from models like Qwen3 and DeepSeek-R1. 🧠
