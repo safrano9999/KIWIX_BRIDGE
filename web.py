@@ -289,6 +289,49 @@ HTML = r"""<!DOCTYPE html>
   #wiki-close:hover { color: #888; }
   #wiki-frame { flex: 1; border: none; background: #fff; }
 
+  /* Settings bar */
+  #settings-bar {
+    background: #0a0a0a; border-bottom: 1px solid #1a1a1a;
+    padding: 7px 16px; display: none; align-items: center; gap: 20px; flex-shrink: 0; flex-wrap: wrap;
+  }
+  #settings-bar.open { display: flex; }
+  .settings-group { display: flex; align-items: center; gap: 5px; }
+  .settings-label { font-size: 9px; color: #3a3a3a; text-transform: uppercase; letter-spacing: 1.5px; white-space: nowrap; margin-right: 2px; }
+  .set-btn {
+    background: #111; color: #444; border: 1px solid #1e1e1e;
+    font-family: 'Courier New', monospace; font-size: 11px;
+    padding: 3px 9px; border-radius: 2px; cursor: pointer; transition: all 0.15s;
+  }
+  .set-btn:hover { color: #888; border-color: #333; }
+  .set-btn.active { background: #1e2a3a; color: #7eb8f7; border-color: #2a5298; }
+  #settings-toggle {
+    background: none; color: #333; border: 1px solid #1e1e1e;
+    font-family: 'Courier New', monospace; font-size: 11px;
+    padding: 4px 10px; border-radius: 2px; cursor: pointer; white-space: nowrap; transition: all 0.15s;
+  }
+  #settings-toggle:hover, #settings-toggle.open { color: #7eb8f7; border-color: #2a5298; }
+
+  /* Thinking block */
+  .thinking-block {
+    margin-bottom: 8px; border: 1px solid #1a2a1a;
+    border-radius: 3px; background: #080e08; overflow: hidden;
+  }
+  .thinking-header {
+    padding: 4px 10px; font-size: 10px; color: #2a4a2a;
+    cursor: pointer; display: flex; align-items: center; gap: 6px;
+    user-select: none; transition: color 0.15s;
+  }
+  .thinking-header:hover { color: #4a7a4a; }
+  .thinking-toggle { font-size: 9px; transition: transform 0.2s; display: inline-block; }
+  .thinking-toggle.open { transform: rotate(90deg); }
+  .thinking-body {
+    display: none; padding: 10px 12px;
+    font-size: 11px; color: #3a5a3a; line-height: 1.6;
+    white-space: pre-wrap; border-top: 1px solid #1a2a1a;
+    max-height: 280px; overflow-y: auto;
+  }
+  .thinking-body.open { display: block; }
+
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: #0d0d0d; }
   ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
@@ -308,6 +351,31 @@ HTML = r"""<!DOCTYPE html>
   <button class="lang-btn"        id="btn-en" onclick="setLang('en')">EN</button>
   <div id="kiwix-indicator">
     <span id="kiwix-dot"></span> Kiwix offline
+  </div>
+  <button id="settings-toggle" onclick="toggleSettings()">⚙ Settings</button>
+</div>
+
+<div id="settings-bar">
+  <div class="settings-group">
+    <span class="settings-label">Temp</span>
+    <button class="set-btn" id="t0"   onclick="setSetting('temp',0)">0.0</button>
+    <button class="set-btn" id="t03"  onclick="setSetting('temp',0.3)">0.3</button>
+    <button class="set-btn active" id="t07"  onclick="setSetting('temp',0.7)">0.7</button>
+    <button class="set-btn" id="t10"  onclick="setSetting('temp',1.0)">1.0</button>
+  </div>
+  <div class="settings-group">
+    <span class="settings-label">Thinking</span>
+    <button class="set-btn active" id="th-off"    onclick="setSetting('thinking','off')">Off</button>
+    <button class="set-btn"        id="th-low"    onclick="setSetting('thinking','low')">Low</button>
+    <button class="set-btn"        id="th-medium" onclick="setSetting('thinking','medium')">Med</button>
+    <button class="set-btn"        id="th-high"   onclick="setSetting('thinking','high')">High</button>
+  </div>
+  <div class="settings-group">
+    <span class="settings-label">Max tokens</span>
+    <button class="set-btn" id="tok1k" onclick="setSetting('tokens',1000)">1k</button>
+    <button class="set-btn" id="tok2k" onclick="setSetting('tokens',2000)">2k</button>
+    <button class="set-btn active" id="tok4k" onclick="setSetting('tokens',4000)">4k</button>
+    <button class="set-btn" id="tok8k" onclick="setSetting('tokens',8000)">8k</button>
   </div>
 </div>
 
@@ -333,6 +401,32 @@ HTML = r"""<!DOCTYPE html>
 let registry = {};
 let lang = 'de';
 let activeLink = null;
+let settings = { temp: 0.7, thinking: 'off', tokens: 4000 };
+
+function toggleSettings() {
+  const bar = document.getElementById('settings-bar');
+  const btn = document.getElementById('settings-toggle');
+  bar.classList.toggle('open');
+  btn.classList.toggle('open');
+}
+
+function setSetting(key, val) {
+  settings[key] = val;
+  if (key === 'temp') {
+    ['t0','t03','t07','t10'].forEach(id => document.getElementById(id).classList.remove('active'));
+    const map = {'0':'t0', '0.3':'t03', '0.7':'t07', '1':'t10'};
+    const el = document.getElementById(map[String(val)]);
+    if (el) el.classList.add('active');
+  } else if (key === 'thinking') {
+    ['th-off','th-low','th-medium','th-high'].forEach(id => document.getElementById(id).classList.remove('active'));
+    document.getElementById('th-' + val).classList.add('active');
+  } else if (key === 'tokens') {
+    ['tok1k','tok2k','tok4k','tok8k'].forEach(id => document.getElementById(id).classList.remove('active'));
+    const map = {'1000':'tok1k','2000':'tok2k','4000':'tok4k','8000':'tok8k'};
+    const el = document.getElementById(map[String(val)]);
+    if (el) el.classList.add('active');
+  }
+}
 
 async function loadModels() {
   const r = await fetch('/api/models');
@@ -454,12 +548,16 @@ async function ask() {
 
   let fullText = '';
   let citations = [];
+  let thinkingBlock = null;
+  let thinkingBodyEl = null;
+  let thinkingText = '';
 
   try {
     const resp = await fetch('/api/ask', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ question, model, lang })
+      body: JSON.stringify({ question, model, lang,
+        temperature: settings.temp, thinking: settings.thinking, max_tokens: settings.tokens })
     });
 
     const reader = resp.body.getReader();
@@ -494,6 +592,30 @@ async function ask() {
           citations = obj.items;
           if (citations.length) flashKiwix();
           aText.innerHTML = '<span class="searching">↳ formuliere Antwort...<span class="cursor"> ▋</span></span>';
+
+        } else if (obj.type === 'thinking') {
+          if (!thinkingBlock) {
+            thinkingBlock = document.createElement('div');
+            thinkingBlock.className = 'thinking-block';
+            const hdr = document.createElement('div');
+            hdr.className = 'thinking-header';
+            const arrow = document.createElement('span');
+            arrow.className = 'thinking-toggle';
+            arrow.textContent = '▶';
+            hdr.appendChild(arrow);
+            hdr.appendChild(document.createTextNode(' Thinking'));
+            thinkingBodyEl = document.createElement('div');
+            thinkingBodyEl.className = 'thinking-body';
+            hdr.onclick = () => {
+              thinkingBodyEl.classList.toggle('open');
+              arrow.classList.toggle('open');
+            };
+            thinkingBlock.appendChild(hdr);
+            thinkingBlock.appendChild(thinkingBodyEl);
+            aBody.insertBefore(thinkingBlock, aText);
+          }
+          thinkingText += obj.text;
+          thinkingBodyEl.textContent = thinkingText;
 
         } else if (obj.type === 'token') {
           if (!started) { aText.textContent = ''; started = true; }
@@ -566,7 +688,27 @@ loadModels();
 </html>
 """
 
-def _build_llm_kwargs(model: str, api_key: str) -> Dict:
+_THINKING_BUDGETS  = {"low": 1024,  "medium": 5000,   "high": 16000}
+_REASONING_EFFORTS = {"low": "low", "medium": "medium", "high": "high"}
+
+
+def _model_base(model: str) -> str:
+    """Lowercase last path segment, e.g. 'ollama/deepseek-r1' → 'deepseek-r1'."""
+    return model.split("/")[-1].lower()
+
+
+def _is_claude(model: str) -> bool:
+    return "claude" in _model_base(model)
+
+
+def _is_openai_reasoning(model: str) -> bool:
+    """o1, o3, o4-mini, etc."""
+    return bool(re.match(r'^o[1-9]', _model_base(model)))
+
+
+def _build_llm_kwargs(model: str, api_key: str,
+                      temperature: float = None, thinking: str = "off",
+                      max_tokens: int = None) -> Dict:
     """Build base litellm kwargs for a given model."""
     kwargs: Dict = {"model": model, "timeout": 60}
     if api_key:
@@ -574,11 +716,35 @@ def _build_llm_kwargs(model: str, api_key: str) -> Dict:
     if model.startswith("ollama/"):
         kwargs["api_base"] = "http://localhost:11434"
     if model.startswith("kilocode/"):
-        raw_id = model[len("kilocode/"):]          # e.g. "openai/gpt-5.4-pro"
-        # LiteLLM needs "openai/X" prefix; if ID already has provider prefix, keep as-is
+        raw_id = model[len("kilocode/"):]
         kwargs["model"]    = raw_id if raw_id.startswith("openai/") else f"openai/{raw_id}"
-        kwargs["api_base"] = "https://api.kilo.ai/api/gateway"   # no trailing slash
+        kwargs["api_base"] = "https://api.kilo.ai/api/gateway"
         kwargs["api_key"]  = os.getenv("KILOCODE_API_KEY", api_key)
+
+    budget = _THINKING_BUDGETS.get(thinking)
+    if budget:
+        if _is_claude(model):
+            # Anthropic extended thinking API — temperature must be 1.0
+            kwargs["thinking"]    = {"type": "enabled", "budget_tokens": budget}
+            kwargs["temperature"] = 1.0
+        elif _is_openai_reasoning(model):
+            # OpenAI o-series: reasoning_effort param, no temperature override
+            kwargs["reasoning_effort"] = _REASONING_EFFORTS[thinking]
+            if temperature is not None:
+                kwargs["temperature"] = temperature
+        else:
+            # DeepSeek, Ollama thinking models, Gemini 2.5, etc.:
+            # thinking output appears in reasoning_content/thinking delta automatically,
+            # no special param needed — just pass temperature normally
+            if temperature is not None:
+                kwargs["temperature"] = temperature
+    else:
+        if temperature is not None:
+            kwargs["temperature"] = temperature
+
+    if max_tokens:
+        kwargs["max_tokens"] = max_tokens
+
     return kwargs
 
 
@@ -596,17 +762,23 @@ def api_models():
 
 @app.route("/api/ask", methods=["POST"])
 def api_ask():
-    data     = request.get_json()
-    question = data.get("question", "").strip()
-    model    = data.get("model", "").strip()
-    lang     = data.get("lang", "de")
+    data        = request.get_json()
+    question    = data.get("question", "").strip()
+    model       = data.get("model", "").strip()
+    lang        = data.get("lang", "de")
+    temperature = data.get("temperature", 0.7)
+    thinking    = data.get("thinking", "off")
+    max_tokens  = data.get("max_tokens", 4000)
 
     if not question or not model:
         return jsonify({"error": "missing question or model"}), 400
 
-    provider    = model.split("/")[0] if "/" in model else ""
-    api_key     = parse_env_providers().get(provider, "")
-    llm_kwargs  = _build_llm_kwargs(model, api_key)
+    provider   = model.split("/")[0] if "/" in model else ""
+    api_key    = parse_env_providers().get(provider, "")
+    llm_kwargs = _build_llm_kwargs(model, api_key,
+                                   temperature=temperature,
+                                   thinking=thinking,
+                                   max_tokens=max_tokens)
 
     def generate():
         # ── Step 1: LLM extracts 3-5 Wikipedia search keywords ──────────────
@@ -614,15 +786,19 @@ def api_ask():
 
         keywords = []
         try:
+            # Keyword extraction: lightweight, no thinking needed
+            kw_kwargs = {k: v for k, v in llm_kwargs.items()
+                         if k not in ("thinking", "max_tokens")}
             kw_resp = litellm.completion(
                 **{
-                    **llm_kwargs,
+                    **kw_kwargs,
                     "messages": [{
                         "role": "user",
                         "content": SKILLS.get("keyword_extraction", "Name 3 Wikipedia articles for: {question}").replace("{question}", question)
                     }],
                     "max_tokens": 80,
                     "stream": False,
+                    "temperature": 0.3,
                 }
             )
             raw = (kw_resp.choices[0].message.content or "").strip()
@@ -669,7 +845,13 @@ def api_ask():
                 ],
                 "stream": True,
             }):
-                token = chunk.choices[0].delta.content
+                delta = chunk.choices[0].delta
+                # Thinking / reasoning content (Claude extended thinking, DeepSeek, o1, etc.)
+                thought = (getattr(delta, "thinking", None) or
+                           getattr(delta, "reasoning_content", None))
+                if thought:
+                    yield f"data: {json.dumps({'type': 'thinking', 'text': thought})}\n\n"
+                token = delta.content
                 if token:
                     yield f"data: {json.dumps({'type': 'token', 'text': token})}\n\n"
         except Exception as e:
