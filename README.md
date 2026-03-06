@@ -83,7 +83,7 @@ This creates a local `venv/` and installs all dependencies.
 
 Edit **`kiwix.conf`** and adapt `KIWIX_URL` to your Kiwix server.
 
-### 4. Configure AI providers
+### 4. Configure AI providers (not needed with ollama)
 
 Copy `.env.example` to `.env` and add your API keys.
 
@@ -96,13 +96,6 @@ python bin/web.py
 Open [http://127.0.0.1:7710](http://127.0.0.1:7710) in your browser — port configurable via `WEB_PORT` in `kiwix.conf`.
 
 ---
-
-## 🔑 Configuration (`.env`)
-
-Add API keys for the cloud providers you want to use. All providers are **auto-detected** — no extra config, just add the keys you have. Ollama needs no key at all.
-
----
-
 
 
 ## 📁 Project structure
