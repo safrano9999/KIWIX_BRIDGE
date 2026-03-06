@@ -23,7 +23,7 @@ The `Native Think` toggle in Settings captures `<think>` reasoning output from t
 
 ---
 
-## 📖 What is Kiwix?
+## 📖 What is Kiwix and what is KIWIX_BRIDGE?
 
 [Kiwix](https://www.kiwix.org/) is an **offline Wikipedia reader** — it downloads the entire Wikipedia (all languages, all articles) and serves it locally as a fast HTTP server. No internet required. No rate limits. No censorship.
 
