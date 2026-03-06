@@ -2,6 +2,10 @@
 ![Example Image](KIWIX_BRIDGE.png)
 
 > **Wikipedia's facts + AI's intelligence — fully offline, brutally accurate.**
+>
+> Ask any question — KIWIX BRIDGE finds the right Wikipedia articles, feeds them to the AI, and returns a precise answer with clickable citations. 📚
+> Works with any model: local Ollama, cloud providers, or reasoning models with thinking output. ⚙️
+> No hallucinations — every answer is grounded in real Wikipedia content retrieved from your local Kiwix server. 🎯
 
 Even the smallest local models can answer complex factual questions with precision — because they don't have to *know* the answer, they just have to *read* it. KIWIX BRIDGE fetches the right Wikipedia articles first, then lets the AI reason over them. No hallucinations. Just facts. 🎯
 
@@ -100,17 +104,6 @@ Add API keys for the cloud providers you want to use. All providers are **auto-d
 ---
 
 
-## 🎛️ Features
-
-- 🔍 **Always fetches Wikipedia first** — AI never answers from memory alone
-- 📎 **Clickable citations** — open the Wikipedia article in a side panel
-- 🏷️ **Keyword chips** — see exactly what KIWIX BRIDGE searched for
-- 🧠 **Thinking mode** — extended thinking for models that support it, plus native `<think>` tag parsing for reasoning models
-- ⚙️ **Per-query settings** — temperature, thinking depth, max tokens
-- 🌐 **DE / EN** — search German or English Wikipedia
-- 📋 **Copy button** — copy answer + citations in one click
-
----
 
 ## 🏗️ Tech Stack
 
