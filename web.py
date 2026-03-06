@@ -236,7 +236,7 @@ HTML = r"""<!DOCTYPE html>
   .cite-link.active { color: #7eb8f7; border-color: #2a5298; background: #0d1a2a; }
 
   .copy-btn {
-    margin-left: auto; background: none; color: #333; border: 1px solid #222;
+    margin-left: auto; background: none; color: #667; border: 1px solid #333;
     font-family: 'Courier New', monospace; font-size: 11px; padding: 2px 10px;
     border-radius: 2px; cursor: pointer; white-space: nowrap; transition: all 0.15s;
   }
@@ -297,16 +297,17 @@ HTML = r"""<!DOCTYPE html>
   }
   #settings-bar.open { display: flex; }
   .settings-group { display: flex; align-items: center; gap: 5px; }
-  .settings-label { font-size: 9px; color: #667; text-transform: uppercase; letter-spacing: 1.5px; white-space: nowrap; margin-right: 2px; }
+  .settings-label { font-size: 9px; color: #89a; text-transform: uppercase; letter-spacing: 1.5px; white-space: nowrap; margin-right: 2px; }
   .set-btn {
-    background: #161616; color: #668; border: 1px solid #2a2a2a;
+    background: #181818; color: #8899bb; border: 1px solid #3a3a3a;
     font-family: 'Courier New', monospace; font-size: 11px;
     padding: 3px 9px; border-radius: 2px; cursor: pointer; transition: all 0.15s;
   }
-  .set-btn:hover { color: #99b; border-color: #444; }
+  .set-btn:hover { color: #aabbd0; border-color: #555; }
   .set-btn.active { background: #1e2a3a; color: #7eb8f7; border-color: #2a5298; }
+  .set-btn.active-green { background: #1a2e1a; color: #7ecc7e; border-color: #2a6a2a; }
   #settings-toggle {
-    background: none; color: #333; border: 1px solid #1e1e1e;
+    background: none; color: #8899aa; border: 1px solid #3a3a3a;
     font-family: 'Courier New', monospace; font-size: 11px;
     padding: 4px 10px; border-radius: 2px; cursor: pointer; white-space: nowrap; transition: all 0.15s;
   }
@@ -379,6 +380,10 @@ HTML = r"""<!DOCTYPE html>
     <button class="set-btn" id="tok4k" onclick="setSetting('tokens',4000)">4k</button>
     <button class="set-btn" id="tok8k" onclick="setSetting('tokens',8000)">8k</button>
   </div>
+  <div class="settings-group">
+    <span class="settings-label">Native Think</span>
+    <button class="set-btn" id="nth-btn" onclick="toggleNativeThink()" title="Parse &lt;think&gt; tags from Qwen3, DeepSeek-R1, etc.">OFF</button>
+  </div>
 </div>
 
 <div id="body">
@@ -403,7 +408,20 @@ HTML = r"""<!DOCTYPE html>
 let registry = {};
 let lang = 'de';
 let activeLink = null;
-let settings = { temp: null, thinking: 'off', tokens: null };
+let settings = { temp: null, thinking: 'off', tokens: null, native_think: false };
+
+function toggleNativeThink() {
+  settings.native_think = !settings.native_think;
+  const btn = document.getElementById('nth-btn');
+  if (settings.native_think) {
+    btn.textContent = 'ON';
+    btn.classList.remove('set-btn');
+    btn.className = 'set-btn active-green';
+  } else {
+    btn.textContent = 'OFF';
+    btn.className = 'set-btn';
+  }
+}
 
 function toggleSettings() {
   const bar = document.getElementById('settings-bar');
@@ -559,9 +577,9 @@ async function ask() {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(Object.assign(
-        { question, model, lang, thinking: settings.thinking },
-        settings.temp   !== null ? { temperature: settings.temp }    : {},
-        settings.tokens !== null ? { max_tokens:  settings.tokens }  : {}
+        { question, model, lang, thinking: settings.thinking, native_think: settings.native_think },
+        settings.temp   !== null ? { temperature: settings.temp }   : {},
+        settings.tokens !== null ? { max_tokens:  settings.tokens } : {}
       ))
     });
 
@@ -771,9 +789,10 @@ def api_ask():
     question    = data.get("question", "").strip()
     model       = data.get("model", "").strip()
     lang        = data.get("lang", "de")
-    temperature = data.get("temperature")   # None = model default
-    thinking    = data.get("thinking", "off")
-    max_tokens  = data.get("max_tokens")    # None = model default
+    temperature  = data.get("temperature")   # None = model default
+    thinking     = data.get("thinking", "off")
+    max_tokens   = data.get("max_tokens")    # None = model default
+    native_think = data.get("native_think", False)
 
     if not question or not model:
         return jsonify({"error": "missing question or model"}), 400
@@ -842,6 +861,7 @@ def api_ask():
             user_content = question
 
         try:
+            in_think = False   # state for <think> tag parsing
             for chunk in litellm.completion(**{
                 **llm_kwargs,
                 "messages": [
@@ -851,13 +871,41 @@ def api_ask():
                 "stream": True,
             }):
                 delta = chunk.choices[0].delta
-                # Thinking / reasoning content (Claude extended thinking, DeepSeek, o1, etc.)
+                # Structured thinking (Claude, o-series, DeepSeek via reasoning_content)
                 thought = (getattr(delta, "thinking", None) or
                            getattr(delta, "reasoning_content", None))
                 if thought:
                     yield f"data: {json.dumps({'type': 'thinking', 'text': thought})}\n\n"
-                token = delta.content
-                if token:
+
+                token = delta.content or ""
+                if not token:
+                    continue
+
+                if native_think:
+                    # Parse <think>...</think> inline tags (Qwen3, DeepSeek-R1, etc.)
+                    buf = token
+                    while buf:
+                        if not in_think:
+                            idx = buf.find("<think>")
+                            if idx >= 0:
+                                if idx > 0:
+                                    yield f"data: {json.dumps({'type': 'token', 'text': buf[:idx]})}\n\n"
+                                in_think = True
+                                buf = buf[idx + len("<think>"):]
+                            else:
+                                yield f"data: {json.dumps({'type': 'token', 'text': buf})}\n\n"
+                                buf = ""
+                        else:
+                            idx = buf.find("</think>")
+                            if idx >= 0:
+                                if idx > 0:
+                                    yield f"data: {json.dumps({'type': 'thinking', 'text': buf[:idx]})}\n\n"
+                                in_think = False
+                                buf = buf[idx + len("</think>"):]
+                            else:
+                                yield f"data: {json.dumps({'type': 'thinking', 'text': buf})}\n\n"
+                                buf = ""
+                else:
                     yield f"data: {json.dumps({'type': 'token', 'text': token})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'text': str(e)})}\n\n"
