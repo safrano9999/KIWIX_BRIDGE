@@ -206,33 +206,33 @@ HTML = r"""<!DOCTYPE html>
   .qa-block { display: flex; flex-direction: column; gap: 8px; }
 
   .q-row { display: flex; gap: 10px; align-items: flex-start; }
-  .q-label { font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px; padding-top: 2px; min-width: 18px; }
-  .q-text  { color: #a8c7e8; font-size: 13px; line-height: 1.6; }
+  .q-label { font-size: 10px; color: #778; text-transform: uppercase; letter-spacing: 1px; padding-top: 2px; min-width: 18px; }
+  .q-text  { color: #b8d4f0; font-size: 13px; line-height: 1.6; }
 
   .a-row { display: flex; gap: 10px; align-items: flex-start; }
-  .a-label { font-size: 10px; color: #444; text-transform: uppercase; letter-spacing: 1px; padding-top: 2px; min-width: 18px; }
+  .a-label { font-size: 10px; color: #667; text-transform: uppercase; letter-spacing: 1px; padding-top: 2px; min-width: 18px; }
   .a-body  { flex: 1; min-width: 0; }
-  .a-text  { color: #e0e0e0; font-size: 13px; line-height: 1.7; white-space: pre-wrap; }
+  .a-text  { color: #e8e8e8; font-size: 13px; line-height: 1.7; white-space: pre-wrap; }
 
   /* Keywords row */
   .kw-row { display: flex; flex-wrap: wrap; gap: 5px; margin-left: 28px; }
   .kw-chip {
-    font-size: 10px; color: #3a5a3a; border: 1px solid #1e3a1e;
+    font-size: 10px; color: #6a9a6a; border: 1px solid #2e5a2e;
     padding: 1px 7px; border-radius: 10px; background: #0d1a0d;
   }
   .model-tag {
-    font-size: 10px; color: #2a3a4a; margin-left: 28px; margin-top: 2px;
+    font-size: 10px; color: #5a7a9a; margin-left: 28px; margin-top: 2px;
   }
 
   /* Citations */
   .citations { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-  .cite-label { font-size: 10px; color: #3a3a3a; }
+  .cite-label { font-size: 10px; color: #667; }
   .cite-link {
-    font-size: 11px; color: #3d6b6b; text-decoration: none;
-    border: 1px solid #1e3a3a; padding: 2px 8px; border-radius: 2px; cursor: pointer;
+    font-size: 11px; color: #5a9b9b; text-decoration: none;
+    border: 1px solid #2a5050; padding: 2px 8px; border-radius: 2px; cursor: pointer;
     transition: all 0.15s;
   }
-  .cite-link:hover { color: #5cc8c8; border-color: #2a5a5a; background: #0d1e1e; }
+  .cite-link:hover { color: #7ad8d8; border-color: #3a7070; background: #0d1e1e; }
   .cite-link.active { color: #7eb8f7; border-color: #2a5298; background: #0d1a2a; }
 
   .copy-btn {
@@ -243,8 +243,8 @@ HTML = r"""<!DOCTYPE html>
   .copy-btn:hover { color: #7eb8f7; border-color: #2a5298; }
   .copy-btn.copied { color: #5cb85c; border-color: #3a6b3a; }
 
-  .no-kiwix { font-size: 11px; color: #2a4040; font-style: italic; margin-top: 4px; }
-  .searching { color: #3d5a3d; font-size: 11px; font-style: italic; }
+  .no-kiwix { font-size: 11px; color: #5a8080; font-style: italic; margin-top: 4px; }
+  .searching { color: #6a9a6a; font-size: 11px; font-style: italic; }
   @keyframes blink { 0%,100%{opacity:0.3} 50%{opacity:1} }
   .cursor { animation: blink 0.8s infinite; }
 
@@ -297,13 +297,13 @@ HTML = r"""<!DOCTYPE html>
   }
   #settings-bar.open { display: flex; }
   .settings-group { display: flex; align-items: center; gap: 5px; }
-  .settings-label { font-size: 9px; color: #3a3a3a; text-transform: uppercase; letter-spacing: 1.5px; white-space: nowrap; margin-right: 2px; }
+  .settings-label { font-size: 9px; color: #667; text-transform: uppercase; letter-spacing: 1.5px; white-space: nowrap; margin-right: 2px; }
   .set-btn {
-    background: #111; color: #444; border: 1px solid #1e1e1e;
+    background: #161616; color: #668; border: 1px solid #2a2a2a;
     font-family: 'Courier New', monospace; font-size: 11px;
     padding: 3px 9px; border-radius: 2px; cursor: pointer; transition: all 0.15s;
   }
-  .set-btn:hover { color: #888; border-color: #333; }
+  .set-btn:hover { color: #99b; border-color: #444; }
   .set-btn.active { background: #1e2a3a; color: #7eb8f7; border-color: #2a5298; }
   #settings-toggle {
     background: none; color: #333; border: 1px solid #1e1e1e;
@@ -350,10 +350,10 @@ HTML = r"""<!DOCTYPE html>
   </select>
   <button class="lang-btn active" id="btn-de" onclick="setLang('de')">DE</button>
   <button class="lang-btn"        id="btn-en" onclick="setLang('en')">EN</button>
+  <button id="settings-toggle" onclick="toggleSettings()">⚙ Settings</button>
   <div id="kiwix-indicator">
     <span id="kiwix-dot"></span> Kiwix offline
   </div>
-  <button id="settings-toggle" onclick="toggleSettings()">⚙ Settings</button>
 </div>
 
 <div id="settings-bar">
@@ -721,9 +721,9 @@ def _build_llm_kwargs(model: str, api_key: str,
     if model.startswith("ollama/"):
         kwargs["api_base"] = "http://localhost:11434"
     if model.startswith("kilocode/"):
-        raw_id = model[len("kilocode/"):]
-        kwargs["model"]    = raw_id if raw_id.startswith("openai/") else f"openai/{raw_id}"
-        kwargs["api_base"] = "https://api.kilo.ai/api/gateway"
+        # Mirror TELEGRAM-AI-BOT: always prepend openai/ and use trailing slash
+        kwargs["model"]    = f"openai/{model[len('kilocode/'):]}"
+        kwargs["api_base"] = "https://api.kilo.ai/api/gateway/"
         kwargs["api_key"]  = os.getenv("KILOCODE_API_KEY", api_key)
 
     budget = _THINKING_BUDGETS.get(thinking)
