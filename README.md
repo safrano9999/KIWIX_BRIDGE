@@ -1,4 +1,5 @@
 # 🦝 KIWIX BRIDGE
+![Example Image](KIWIX_BRIDGE.png)
 
 > **Wikipedia's facts + AI's intelligence — fully offline, brutally accurate.**
 
