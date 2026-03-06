@@ -1,10 +1,13 @@
 ## keyword_extraction
 
-For a university research project, find exactly the 3 most relevant Wikipedia articles
-(English or German) that together would allow a student to answer the following question
-perfectly and completely.
-Name the 3 Wikipedia article titles as precise search keywords.
-Reply ONLY with a JSON array of 3 strings, no explanation.
+For a university research project, identify the 3 Wikipedia articles that together
+would allow a student to answer the following question perfectly and completely.
+
+Rules:
+- Always prefer the MAIN subject article over subtopic or list articles
+- Use the exact Wikipedia article title as it would appear in the encyclopedia
+- Prefer German titles for German questions, English titles for English questions
+- Reply ONLY with a JSON array of exactly 3 strings, no explanation
 
 Question: {question}
 

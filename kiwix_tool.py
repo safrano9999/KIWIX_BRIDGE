@@ -6,10 +6,11 @@ article intros + citation info for RAG injection.
 """
 
 import re
+import urllib.parse
 import requests
 import urllib3
 from bs4 import BeautifulSoup
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -65,6 +66,28 @@ def _search(keyword: str, lang: str, max_results: int = 5) -> List[Dict]:
     return out
 
 
+def _direct_lookup(keyword: str, lang: str) -> Optional[Dict]:
+    """
+    Try to fetch an article by exact title via /content/{book}/A/{title}.
+    This bypasses Kiwix fulltext search and goes straight to the article.
+    Returns {title, path, score} or None.
+    """
+    book = BOOKS.get(lang)
+    if not book:
+        return None
+    # MediaWiki uses underscores and capitalises first letter
+    title = keyword.strip().replace(" ", "_")
+    title = title[0].upper() + title[1:] if title else title
+    path = f"/content/{book}/A/{urllib.parse.quote(title, safe='')}"
+    try:
+        resp = requests.get(f"{KIWIX_URL}{path}", verify=VERIFY_SSL, timeout=5)
+        if resp.status_code == 200 and len(resp.text) > 500:
+            return {"title": keyword, "path": path, "score": 150}  # beats all search scores
+    except requests.RequestException:
+        pass
+    return None
+
+
 def _score(title: str, keyword: str) -> int:
     """Rank results: exact match > starts with > contains > word overlap."""
     t = title.lower()
@@ -114,13 +137,21 @@ def fetch_articles(keywords: List[str], lang: str = "de", n_articles: int = 3) -
     seen: Dict[str, Dict] = {}  # path → best scored result
 
     for keyword in keywords:
+        # 1. Try direct article title fetch first (score 150 — beats all search results)
+        direct = _direct_lookup(keyword, lang=lang)
+        if direct is None and lang == "de":
+            direct = _direct_lookup(keyword, lang="en")
+        if direct:
+            seen[direct["path"]] = direct
+
+        # 2. Fulltext search as fallback / complement
         for r in _search(keyword, lang=lang):
             path  = r["path"]
             score = _score(r["title"], keyword)
             if path not in seen or score > seen[path]["score"]:
                 seen[path] = {**r, "score": score}
 
-        # Also try English if DE finds nothing
+        # 3. Also try English if DE search finds nothing
         if not seen and lang == "de":
             for r in _search(keyword, lang="en"):
                 path  = r["path"]
