@@ -820,22 +820,33 @@ def api_ask():
                         "role": "user",
                         "content": SKILLS.get("keyword_extraction", "Name 3 Wikipedia articles for: {question}").replace("{question}", question)
                     }],
-                    "max_tokens": 80,
+                    "max_tokens": 150,
                     "stream": False,
                     "temperature": 0.3,
                 }
             )
             raw = (kw_resp.choices[0].message.content or "").strip()
-            # Extract JSON array even if model adds surrounding text
+            # Extract JSON array even if model wraps it in prose
             m = re.search(r'\[.*?\]', raw, re.DOTALL)
             if m:
-                keywords = json.loads(m.group())
+                candidates = json.loads(m.group())
+                # Validate: reject any keyword that looks like the question itself
+                # (too long, contains '?', or is a near-duplicate of the question)
+                q_lower = question.lower()
+                keywords = [
+                    k for k in candidates
+                    if isinstance(k, str)
+                    and len(k) <= 80
+                    and "?" not in k
+                    and k.lower() not in q_lower[:len(k)]
+                ]
         except Exception:
             pass
 
         if not keywords:
-            # Fallback: use question itself as single keyword
-            keywords = [question]
+            # Fallback: extract meaningful words from the question
+            words = re.findall(r'\b[A-ZÄÖÜ][a-zäöüß]{2,}\b', question)
+            keywords = words[:3] if words else [question.split()[-1]]
 
         yield f"data: {json.dumps({'type': 'keywords', 'items': keywords})}\n\n"
 
