@@ -6,6 +6,24 @@ Even the smallest local models like `qwen3.5:0.8b` can answer complex factual qu
 
 ---
 
+## 🦙 100% Offline with Ollama
+
+Run everything locally — no cloud, no API keys, no data leaving your machine:
+
+```bash
+# Install Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Pull a model (tiny but capable with RAG)
+ollama pull qwen3.5:0.8b    # 0.8 GB — fits anywhere
+ollama pull mistral          # 4 GB  — great quality
+ollama pull deepseek-r1      # with native <think> reasoning
+```
+
+KIWIX BRIDGE **auto-detects Ollama** at startup — no config needed. Just start Ollama and it appears in the provider dropdown instantly. The `Native Think` toggle in Settings captures `<think>` reasoning output from models like Qwen3 and DeepSeek-R1. 🧠
+
+---
+
 ## 📖 What is Kiwix?
 
 [Kiwix](https://www.kiwix.org/) is an **offline Wikipedia reader** — it downloads the entire Wikipedia (all languages, all articles) and serves it locally as a fast HTTP server. No internet required. No rate limits. No censorship.
