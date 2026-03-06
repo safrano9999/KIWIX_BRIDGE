@@ -1,3 +1,4 @@
+flask
 litellm
 python-dotenv
 beautifulsoup4
