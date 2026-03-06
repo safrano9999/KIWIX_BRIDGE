@@ -11,7 +11,7 @@ Even the smallest local models can answer complex factual questions with precisi
 
 **No API key needed to get started.** Install [Ollama](https://ollama.com), pull any model, and KIWIX BRIDGE auto-discovers it at startup — all local models appear in the provider dropdown automatically. No config, no keys, no internet. 🏠
 
-For cloud providers, simply add their API key to `.env` — KIWIX BRIDGE will automatically discover all available models for that provider and populate them in the dropdown. Every provider you add shows up instantly.
+For cloud providers, add your API keys to `.env` — every provider you add is auto-detected and all its models appear in the dropdown instantly.
 
 Everything goes through **[LiteLLM](https://github.com/BerriAI/litellm)** — a universal adapter that makes every model, local or cloud, speak the same interface. [Kilocode](https://kilo.ai) is integrated on top to further expand the available model roster beyond LiteLLM's built-in providers. 🔌
 
@@ -119,7 +119,7 @@ All models auto-populate in the dropdown per provider. Everything goes through *
 - 🔍 **Always fetches Wikipedia first** — AI never answers from memory alone
 - 📎 **Clickable citations** — open the Wikipedia article in a side panel
 - 🏷️ **Keyword chips** — see exactly what KIWIX BRIDGE searched for
-- 🧠 **Thinking mode** — for Claude (extended thinking), OpenAI o-series (reasoning effort), and native `<think>` models like Qwen3, DeepSeek-R1
+- 🧠 **Thinking mode** — extended thinking for models that support it, plus native `<think>` tag parsing for reasoning models
 - ⚙️ **Per-query settings** — temperature, thinking depth, max tokens
 - 🌐 **DE / EN** — search German or English Wikipedia
 - 📋 **Copy button** — copy answer + citations in one click
