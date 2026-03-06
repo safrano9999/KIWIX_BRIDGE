@@ -99,20 +99,6 @@ Add API keys for the cloud providers you want to use. All providers are **auto-d
 
 ---
 
-## 🤖 Supported Providers
-
-| Provider | Key in `.env` | Notes |
-|---|---|---|
-| 🦙 **Ollama** | *(none — auto-detected)* | Local, free, private |
-| 🟣 **Anthropic** (Claude) | `ANTHROPIC_API_KEY` | Extended thinking support |
-| 🟢 **OpenAI** | `OPENAI_API_KEY` | |
-| 🔵 **Google** (Gemini) | `GEMINI_API_KEY` | |
-| 🟠 **Groq** | `GROQ_API_KEY` | Very fast inference |
-| 🔶 **Kilocode** | `KILOCODE_API_KEY` | Gateway to 100+ models |
-
-All models auto-populate in the dropdown per provider. Everything goes through **[LiteLLM](https://github.com/BerriAI/litellm)**.
-
----
 
 ## 🎛️ Features
 
