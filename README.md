@@ -7,11 +7,13 @@ Even the smallest local models can answer complex factual questions with precisi
 
 ---
 
-## 🦙 100% Offline with Ollama + LiteLLM
+## 🦙 Zero config local + optional cloud
 
-Run everything locally — no cloud, no API keys, no data leaving your machine.
+**No API key needed to get started.** Install [Ollama](https://ollama.com), pull any model, and KIWIX BRIDGE auto-discovers it at startup — all local models appear in the provider dropdown automatically. No config, no keys, no internet. 🏠
 
-Install [Ollama](https://ollama.com), pull any model, and KIWIX BRIDGE **auto-detects it at startup** — it just appears in the provider dropdown. All providers, including Ollama, go through **[LiteLLM](https://github.com/BerriAI/litellm)**, which acts as a universal adapter so every model speaks the same interface. 🔌
+For cloud providers, simply add their API key to `.env` — KIWIX BRIDGE will automatically discover all available models for that provider and populate them in the dropdown. Every provider you add shows up instantly.
+
+Everything goes through **[LiteLLM](https://github.com/BerriAI/litellm)** — a universal adapter that makes every model, local or cloud, speak the same interface. 🔌
 
 The `Native Think` toggle in Settings captures `<think>` reasoning output from thinking-capable models. 🧠
 
@@ -99,16 +101,16 @@ Add API keys for the cloud providers you want to use. All providers are **auto-d
 
 ## 🤖 Supported Providers
 
-| Provider | How |
-|---|---|
-| 🟣 **Anthropic** (Claude) | `ANTHROPIC_API_KEY` — supports extended thinking |
-| 🟢 **OpenAI** | `OPENAI_API_KEY` |
-| 🔵 **Google** (Gemini) | `GEMINI_API_KEY` |
-| 🟠 **Groq** | `GROQ_API_KEY` — very fast inference |
-| 🦙 **Ollama** | Auto-detected at `localhost:11434` — free, local, private |
-| 🔶 **Kilocode** | `KILOCODE_API_KEY` — gateway to 100+ models (GPT, Claude, Gemini, ...) |
+| Provider | Key in `.env` | Notes |
+|---|---|---|
+| 🦙 **Ollama** | *(none — auto-detected)* | Local, free, private |
+| 🟣 **Anthropic** (Claude) | `ANTHROPIC_API_KEY` | Extended thinking support |
+| 🟢 **OpenAI** | `OPENAI_API_KEY` | |
+| 🔵 **Google** (Gemini) | `GEMINI_API_KEY` | |
+| 🟠 **Groq** | `GROQ_API_KEY` | Very fast inference |
+| 🔶 **Kilocode** | `KILOCODE_API_KEY` | Gateway to 100+ models |
 
-All providers go through **[LiteLLM](https://github.com/BerriAI/litellm)** — one unified interface for everything.
+All models auto-populate in the dropdown per provider. Everything goes through **[LiteLLM](https://github.com/BerriAI/litellm)**.
 
 ---
 
