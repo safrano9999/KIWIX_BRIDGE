@@ -45,7 +45,7 @@ Your Question
 ✅ Precise answer + clickable Wikipedia citations
 ```
 
-This is **RAG (Retrieval-Augmented Generation)** — but with your own local Wikipedia, no cloud, no API costs for retrieval.
+This is **RAG (Retrieval-Augmented Generation)** — but with your own local Wikipedia, no cloud. Suitable for parents to let children work offline with AI.
 
 ---
 
