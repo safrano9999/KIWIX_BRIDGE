@@ -3,23 +3,17 @@
 
 > **Wikipedia's facts + AI's intelligence — fully offline, brutally accurate.**
 
-Even the smallest local models like `qwen3.5:0.8b` can answer complex factual questions with precision — because they don't have to *know* the answer, they just have to *read* it. KIWIX BRIDGE fetches the right Wikipedia articles first, then lets the AI reason over them. No hallucinations. Just facts. 🎯
+Even the smallest local models can answer complex factual questions with precision — because they don't have to *know* the answer, they just have to *read* it. KIWIX BRIDGE fetches the right Wikipedia articles first, then lets the AI reason over them. No hallucinations. Just facts. 🎯
 
 ---
 
-## 🦙 100% Offline with Ollama
+## 🦙 100% Offline with Ollama + LiteLLM
 
-Run everything locally — no cloud, no API keys, no data leaving your machine:
+Run everything locally — no cloud, no API keys, no data leaving your machine.
 
-```bash
-# Install Ollama
-curl -fsSL https://ollama.com/install.sh | sh
+Install [Ollama](https://ollama.com), pull any model, and KIWIX BRIDGE **auto-detects it at startup** — it just appears in the provider dropdown. All providers, including Ollama, go through **[LiteLLM](https://github.com/BerriAI/litellm)**, which acts as a universal adapter so every model speaks the same interface. 🔌
 
-# Pull a model (tiny but capable with RAG)
-ollama pull qwen3.5:0.8b    # 0.8 GB — fits anywhere
-```
-
-KIWIX BRIDGE **auto-detects Ollama** at startup — no config needed. Just start Ollama and it appears in the provider dropdown instantly. The `Native Think` toggle in Settings captures `<think>` reasoning output from models like Qwen3 and DeepSeek-R1. 🧠
+The `Native Think` toggle in Settings captures `<think>` reasoning output from thinking-capable models. 🧠
 
 ---
 
@@ -55,7 +49,7 @@ A tiny model running on your laptop doesn't need to memorize all of Wikipedia. I
 1. Know what to search for *(easy)*
 2. Read 3 articles and extract the answer *(easy)*
 
-This means **`qwen3.5:0.8b`, `mistral:7b`, `llama3.2:3b`** and similar small Ollama models become genuinely useful for factual Q&A — grounded in real Wikipedia data, not hallucinations. 🔥
+This means even small Ollama models become genuinely useful for factual Q&A — grounded in real Wikipedia data, not hallucinations. 🔥
 
 ---
 
@@ -81,18 +75,11 @@ This creates a local `venv/` and installs all dependencies.
 
 ### 3. Configure Kiwix URL
 
-Edit **`kiwix.conf`** — adapt the URL to your Kiwix server:
-
-```ini
-KIWIX_URL=https://127.0.0.1:450
-```
+Edit **`kiwix.conf`** and adapt `KIWIX_URL` to your Kiwix server.
 
 ### 4. Configure AI providers
 
-```bash
-cp .env.example .env
-nano .env
-```
+Copy `.env.example` to `.env` and add your API keys.
 
 ### 5. Run
 
@@ -106,21 +93,7 @@ Open **http://127.0.0.1:7710** in your browser.
 
 ## 🔑 Configuration (`.env`)
 
-```env
-# Cloud providers — add whichever you have
-ANTHROPIC_API_KEY=sk-ant-...
-OPENAI_API_KEY=sk-...
-GEMINI_API_KEY=AIza...
-GROQ_API_KEY=gsk_...
-
-# Kilocode gateway (access 100+ models with one key)
-KILOCODE_API_KEY=...
-
-# Ollama runs without a key — just start it locally
-# OLLAMA_API_KEY=   ← not needed
-```
-
-All providers are **auto-detected** from your `.env` — no config file, just add the keys you have.
+Add API keys for the cloud providers you want to use. All providers are **auto-detected** — no extra config, just add the keys you have. Ollama needs no key at all.
 
 ---
 
