@@ -105,6 +105,42 @@ Add API keys for the cloud providers you want to use. All providers are **auto-d
 
 
 
+## 📁 Project structure
+
+```
+KIWIX_BRIDGE/
+├── bin/
+│   ├── setup.py          # One-time installer — creates venv + installs dependencies
+│   ├── web.py            # Main app — Flask web UI, run this to start
+│   ├── chat.py           # Alternative CLI chat (terminal only, no browser needed)
+│   └── kiwix_tool.py     # Internal library — not meant to be run directly
+├── static/               # Logo / icon assets for the web UI
+├── kiwix.conf            # Config: Kiwix URL, web server port/host
+├── SKILLS.md             # System prompts and keyword extraction prompt (editable)
+└── requirements.txt      # Python dependencies
+```
+
+### `web.py` — the main interface ⭐ start here
+
+**This is the main program.** Run it, then open `http://127.0.0.1:7710` in your browser — that's all.
+
+A Flask web app that uses a **RAG pipeline**:
+1. Extracts 3–5 Wikipedia search keywords from your question (via LLM)
+2. Fetches matching articles from your local Kiwix server
+3. Streams the LLM answer grounded in those articles, with clickable citations
+
+Supports Ollama (auto-detected), cloud providers via `.env` API keys, temperature/token settings, and thinking mode for reasoning models.
+
+### `chat.py` — terminal alternative
+
+An interactive CLI chat. Same idea, but uses **function calling** instead of RAG: the LLM decides on its own when to look something up in Wikipedia. No browser, no Flask — just type and get answers in the terminal. Useful for quick queries or environments without a browser.
+
+### `kiwix_tool.py` — internal library
+
+Handles all communication with the Kiwix server: article discovery, search, direct title lookup, intro text extraction, and scoring/deduplication of results. Imported by both `web.py` and `chat.py` — you don't run this directly.
+
+---
+
 ## 🏗️ Tech Stack
 
 - **Flask** — lightweight Python web server
