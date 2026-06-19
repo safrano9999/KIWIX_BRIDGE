@@ -1,5 +1,5 @@
 flask
-litellm
+openai
 python-dotenv
 beautifulsoup4
 requests

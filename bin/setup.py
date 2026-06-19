@@ -32,8 +32,9 @@ def main():
     print(f"Installing {req} ...")
     run([str(pip), "install", "-r", str(req)])
 
-    print(f"\nDone.")
-    print(f"Start: python web.py")
+    print("\nDone.")
+    print("Configure: ./config.sh")
+    print("Start: python3 bin/web.py")
 
 
 if __name__ == "__main__":

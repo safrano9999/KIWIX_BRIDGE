@@ -1,86 +1,31 @@
+#!/usr/bin/env python3
 """
-KIWIX_BRIDGE - Interactive CLI chat with local Wikipedia tool
-Uses LiteLLM (provider/model from .env) + Kiwix function calling.
+KIWIX_BRIDGE - interactive CLI chat with local Wikipedia tool.
+Uses the OpenAI-compatible LiteLLM proxy configured through config.conf/.env.
 """
 
-import os
-import re
-import sys
+import json
 import logging
+import sys
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
 
-import litellm
-from dotenv import load_dotenv
-from kiwix_tool import wikipedia_lookup
+_venv_site = Path(__file__).parent.parent / "venv" / "lib"
+if _venv_site.exists():
+    for _p in _venv_site.glob("python*/site-packages"):
+        if str(_p) not in sys.path:
+            sys.path.insert(0, str(_p))
+
+PROJECT_DIR = Path(__file__).resolve().parent.parent
+if str(PROJECT_DIR) not in sys.path:
+    sys.path.insert(0, str(PROJECT_DIR))
+
+from python_header import get  # noqa: E402
+from kiwix_tool import wikipedia_lookup  # noqa: E402
+from llm_proxy import build_model_registry, chat_completion, chat_params  # noqa: E402
 
 logging.basicConfig(level=logging.WARNING)
-logger = logging.getLogger("kiwix_bridge")
 
-# ── Env loading ────────────────────────────────────────────────────────────────
-
-_DIR = Path(__file__).parent
-
-def _load_dotenv(filename: str):
-    """Load .filename from own dir first, then sibling CLAWBRIDGE dir."""
-    own  = _DIR / filename
-    boss = _DIR.parent / "CLAWBRIDGE" / filename
-    if own.exists():
-        load_dotenv(own, override=False)
-    elif boss.exists():
-        load_dotenv(boss, override=False)
-
-_load_dotenv(".env")
-
-# ── Provider/model detection (same pattern as TELEGRAM-AI-BOT) ────────────────
-
-_ENV_TO_PROVIDER = {"google": "gemini"}
-
-_NON_LLM_SUFFIXES = frozenset([
-    "BRAVE_API_KEY", "TAVILY_API_KEY", "SERPAPI_KEY", "SERPER_API_KEY",
-    "DALLE_API_KEY", "STABILITY_API_KEY", "REPLICATE_API_KEY", "FAL_API_KEY",
-    "WHISPER_API_KEY", "GEMINI_VOICE_KEY", "ELEVENLABS_API_KEY", "OPENAI_TTS_KEY",
-])
-
-
-def parse_env_providers() -> Dict[str, str]:
-    if os.getenv("GOOGLE_API_KEY") and not os.getenv("GEMINI_API_KEY"):
-        os.environ["GEMINI_API_KEY"] = os.environ["GOOGLE_API_KEY"]
-    providers = {}
-    for key, value in os.environ.items():
-        if not key.endswith("_API_KEY") or not value or value in ("...", ""):
-            continue
-        if key in _NON_LLM_SUFFIXES:
-            continue
-        raw      = key.removesuffix("_API_KEY").lower()
-        provider = _ENV_TO_PROVIDER.get(raw, raw)
-        providers[provider] = value
-    return providers
-
-
-def get_models_for_provider(provider: str) -> List[str]:
-    all_models = litellm.models_by_provider.get(provider, [])
-    prefix     = f"{provider}/"
-    bare       = [m[len(prefix):] if m.startswith(prefix) else m for m in all_models]
-    known      = set(litellm.model_cost.keys())
-    skip       = ("embed", "tts", "dall-e", "whisper", "moderat", "audio",
-                  "realtime", "image", "search", "computer", "live")
-    chat_models = [m for m in bare
-                   if (f"{provider}/{m}" in known or m in known)
-                   and not any(s in m.lower() for s in skip)]
-    return sorted(chat_models)
-
-
-def build_model_registry() -> Dict[str, List[str]]:
-    registry = {}
-    for provider, _ in parse_env_providers().items():
-        models = get_models_for_provider(provider)
-        if models:
-            registry[provider] = models
-    return registry
-
-
-# ── Tool definition ────────────────────────────────────────────────────────────
 
 WIKIPEDIA_TOOL = {
     "type": "function",
@@ -118,85 +63,74 @@ SYSTEM_PROMPT = (
     "Wenn du Kiwix abgefragt hast, gib die Quelle kurz an."
 )
 
-# ── LLM call with agentic tool loop ───────────────────────────────────────────
+
+def _message_to_dict(message) -> dict:
+    if hasattr(message, "model_dump"):
+        return message.model_dump(exclude_none=True)
+    return dict(message)
+
 
 def call_llm(model_key: str, messages: List[Dict]) -> str:
-    """Run one turn: LLM → optional tool calls → final answer."""
-    provider   = model_key.split("/")[0] if "/" in model_key else ""
-    api_key    = parse_env_providers().get(provider, "")
+    """Run one turn: LLM -> optional tool calls -> final answer."""
     kwargs: Dict = {
-        "model":    model_key,
+        **chat_params(model_key),
         "messages": messages,
-        "tools":    [WIKIPEDIA_TOOL],
-        "timeout":  60,
+        "tools": [WIKIPEDIA_TOOL],
     }
-    if api_key:
-        kwargs["api_key"] = api_key
 
-    # Agentic loop
     while True:
-        response = litellm.completion(**kwargs)
-        msg      = response.choices[0].message
+        response = chat_completion(**kwargs)
+        msg = response.choices[0].message
         tool_calls = getattr(msg, "tool_calls", None) or []
 
         if not tool_calls:
             return msg.content or ""
 
-        # Append assistant message with tool_calls
-        kwargs["messages"] = list(kwargs["messages"]) + [msg]
+        kwargs["messages"] = list(kwargs["messages"]) + [_message_to_dict(msg)]
 
-        # Execute each tool call
         for tc in tool_calls:
-            import json
-            args   = json.loads(tc.function.arguments)
-            query  = args.get("query", "")
-            lang   = args.get("lang", "de")
-            print(f"  \033[2m[Kiwix → {query!r} ({lang})]\033[0m")
+            args = json.loads(tc.function.arguments or "{}")
+            query = args.get("query", "")
+            lang = args.get("lang", "de")
+            print(f"  \033[2m[Kiwix -> {query!r} ({lang})]\033[0m")
             result = wikipedia_lookup(query=query, lang=lang)
             kwargs["messages"].append({
-                "role":         "tool",
+                "role": "tool",
                 "tool_call_id": tc.id,
-                "content":      result,
+                "content": result,
             })
 
-# ── Model selection ────────────────────────────────────────────────────────────
 
 def pick_model(registry: Dict[str, List[str]]) -> Optional[str]:
-    """Let user pick provider and model interactively."""
     providers = sorted(registry.keys())
     if not providers:
         return None
 
     print("\nVerfügbare Provider:")
-    for i, p in enumerate(providers, 1):
-        print(f"  {i}) {p}  ({len(registry[p])} Modelle)")
+    for i, provider in enumerate(providers, 1):
+        print(f"  {i}) {provider}  ({len(registry[provider])} Modelle)")
     try:
-        idx = int(input("Provider wählen [Nr]: ").strip()) - 1
-        provider = providers[idx]
+        provider = providers[int(input("Provider wählen [Nr]: ").strip()) - 1]
     except (ValueError, IndexError):
         print("Ungültige Auswahl.")
         return None
 
     models = registry[provider]
     print(f"\nModelle für {provider}:")
-    for i, m in enumerate(models, 1):
-        print(f"  {i:3}) {m}")
+    for i, model in enumerate(models, 1):
+        print(f"  {i:3}) {model}")
     try:
-        idx   = int(input("Modell wählen [Nr]: ").strip()) - 1
-        model = models[idx]
+        return models[int(input("Modell wählen [Nr]: ").strip()) - 1]
     except (ValueError, IndexError):
         print("Ungültige Auswahl.")
         return None
 
-    return f"{provider}/{model}"
-
-# ── Main chat loop ─────────────────────────────────────────────────────────────
 
 def main():
     registry = build_model_registry()
     if not registry:
-        print("Fehler: Keine LLM API Keys in .env gefunden.")
-        print("Lege eine .env Datei an mit z.B. ANTHROPIC_API_KEY=sk-...")
+        print("Fehler: Keine Modelle vom LiteLLM Proxy verfügbar.")
+        print("Setze LITELLM_API_KEY in .env und LITELLM_URL/LITELLM_PORT in config.conf.")
         sys.exit(1)
 
     model_key = pick_model(registry)
@@ -204,8 +138,8 @@ def main():
         sys.exit(1)
 
     print(f"\nModell: {model_key}")
-    print("Wikipedia: lokal via Kiwix (https://127.0.0.1:450)")
-    print("Chat gestartet — 'quit' oder Strg+C zum Beenden\n")
+    print(f"Wikipedia: lokal via Kiwix ({get('KIWIX_URL', 'https://127.0.0.1:450')})")
+    print("Chat gestartet - 'quit' oder Strg+C zum Beenden\n")
 
     messages: List[Dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
 
@@ -228,9 +162,9 @@ def main():
             answer = call_llm(model_key, messages)
             print(f"\nAssistent: {answer}\n")
             messages.append({"role": "assistant", "content": answer})
-        except Exception as e:
-            print(f"\nFehler: {e}\n")
-            messages.pop()  # don't keep failed user message in history
+        except Exception as exc:
+            print(f"\nFehler: {exc}\n")
+            messages.pop()
 
 
 if __name__ == "__main__":

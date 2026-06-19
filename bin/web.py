@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """
-KIWIX_BRIDGE web.py — Q&A with local Wikipedia (Kiwix) + LiteLLM
+KIWIX_BRIDGE web.py — Q&A with local Wikipedia (Kiwix) + LiteLLM proxy
 Always fetches Wikipedia context first (RAG), then streams LLM answer.
 Works with small/offline models (no function calling needed).
 Run: python web.py
 """
 
-import os
 import sys
 import json
 import logging
@@ -20,12 +19,15 @@ if _venv_site.exists():
         if str(_p) not in sys.path:
             sys.path.insert(0, str(_p))
 
-import requests
+_DIR = Path(__file__).resolve().parent.parent
+if str(_DIR) not in sys.path:
+    sys.path.insert(0, str(_DIR))
+
 from flask import Flask, request, jsonify, Response, stream_with_context, render_template_string
-import litellm
-litellm.drop_params = True   # silently drop unsupported params per model
-from dotenv import load_dotenv
 import re
+
+from python_header import get, get_port  # noqa: E402
+from llm_proxy import build_model_registry, chat_completion, chat_params, litellm_base_url  # noqa: E402
 
 logging.basicConfig(level=logging.WARNING)
 
@@ -55,100 +57,8 @@ def _load_skills(path: Path) -> Dict[str, str]:
 
 SKILLS = _load_skills(Path(__file__).parent.parent / "SKILLS.md")
 
-# ── Env loading ──────────────────────────────────────────────────────────────
-_DIR = Path(__file__).parent.parent
-
-def _load_dotenv(filename: str):
-    own  = _DIR / filename
-    boss = _DIR.parent / "CLAWBRIDGE" / filename
-    if own.exists():
-        load_dotenv(own, override=False)
-    elif boss.exists():
-        load_dotenv(boss, override=False)
-
-_load_dotenv(".env")
-
-# kiwix_tool must be imported AFTER dotenv so KIWIX_URL env var is available
+# kiwix_tool must be imported AFTER python_header so KIWIX_URL env var is available
 from kiwix_tool import fetch_articles, KIWIX_CONF as _kiwix_conf, BOOKS as _kiwix_books  # _kiwix_books: List[str]
-
-# ── Provider / model registry ────────────────────────────────────────────────
-_ENV_TO_PROVIDER = {"google": "gemini"}
-_NON_LLM_SUFFIXES = frozenset([
-    "BRAVE_API_KEY", "TAVILY_API_KEY", "SERPAPI_KEY", "SERPER_API_KEY",
-    "DALLE_API_KEY", "STABILITY_API_KEY", "REPLICATE_API_KEY", "FAL_API_KEY",
-    "WHISPER_API_KEY", "GEMINI_VOICE_KEY", "ELEVENLABS_API_KEY", "OPENAI_TTS_KEY",
-])
-
-def parse_env_providers() -> Dict[str, str]:
-    if os.getenv("GOOGLE_API_KEY") and not os.getenv("GEMINI_API_KEY"):
-        os.environ["GEMINI_API_KEY"] = os.environ["GOOGLE_API_KEY"]
-    out = {}
-    for key, value in os.environ.items():
-        if not key.endswith("_API_KEY") or not value or value in ("...", ""):
-            continue
-        if key in _NON_LLM_SUFFIXES:
-            continue
-        raw      = key.removesuffix("_API_KEY").lower()
-        provider = _ENV_TO_PROVIDER.get(raw, raw)
-        out[provider] = value
-    return out
-
-def _litellm_models_for(provider: str) -> List[str]:
-    all_m  = litellm.models_by_provider.get(provider, [])
-    prefix = f"{provider}/"
-    bare   = [m[len(prefix):] if m.startswith(prefix) else m for m in all_m]
-    known  = set(litellm.model_cost.keys())
-    skip   = ("embed", "tts", "dall-e", "whisper", "moderat", "audio",
-              "realtime", "image", "search", "computer", "live")
-    return sorted(m for m in bare
-                  if (f"{provider}/{m}" in known or m in known)
-                  and not any(s in m.lower() for s in skip))
-
-def _get_ollama_models() -> List[str]:
-    try:
-        resp = requests.get("http://localhost:11434/api/tags", timeout=3)
-        resp.raise_for_status()
-        return sorted(m["name"] for m in resp.json().get("models", []))
-    except Exception:
-        return []
-
-def _get_kilocode_models(api_key: str) -> List[str]:
-    try:
-        import urllib.request
-        req = urllib.request.Request(
-            "https://api.kilo.ai/api/gateway/models",
-            headers={"Authorization": f"Bearer {api_key}"}
-        )
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read())
-        models = []
-        for m in (data.get("data", data) if isinstance(data, dict) else data):
-            mid = m.get("id", "") if isinstance(m, dict) else str(m)
-            if mid:
-                models.append(mid)
-        skip = ("embed", "tts", "image", "whisper", "moderat", "audio")
-        return sorted(m for m in models if not any(s in m.lower() for s in skip))
-    except Exception:
-        return []
-
-def build_model_registry() -> Dict[str, List[str]]:
-    registry = {}
-
-    # API key providers
-    for provider, api_key in parse_env_providers().items():
-        if provider == "kilocode":
-            models = _get_kilocode_models(api_key)
-        else:
-            models = _litellm_models_for(provider)
-        if models:
-            registry[provider] = models
-
-    # Ollama (local, no key needed)
-    ollama_models = _get_ollama_models()
-    if ollama_models:
-        registry["ollama"] = ollama_models
-
-    return registry
 
 # ── System prompt (RAG style — works with any model size) ────────────────────
 def build_system_prompt(has_context: bool) -> str:
@@ -452,7 +362,7 @@ async function loadModels() {
   const psel = document.getElementById('provider-select');
   psel.innerHTML = '';
   const providers = Object.keys(registry).sort();
-  if (!providers.length) { psel.innerHTML = '<option>Keine API Keys</option>'; return; }
+  if (!providers.length) { psel.innerHTML = '<option>Keine Modelle</option>'; return; }
   for (const p of providers) {
     const opt = document.createElement('option');
     opt.value = p;
@@ -468,7 +378,7 @@ function onProviderChange() {
   msel.innerHTML = '';
   for (const m of (registry[provider] || [])) {
     const opt = document.createElement('option');
-    opt.value = provider + '/' + m;
+    opt.value = m;
     opt.textContent = m;
     msel.appendChild(opt);
   }
@@ -722,66 +632,6 @@ loadModels();
 </html>
 """
 
-_THINKING_BUDGETS  = {"low": 1024,  "medium": 5000,   "high": 16000}
-_REASONING_EFFORTS = {"low": "low", "medium": "medium", "high": "high"}
-
-
-def _model_base(model: str) -> str:
-    """Lowercase last path segment, e.g. 'ollama/deepseek-r1' → 'deepseek-r1'."""
-    return model.split("/")[-1].lower()
-
-
-def _is_claude(model: str) -> bool:
-    return "claude" in _model_base(model)
-
-
-def _is_openai_reasoning(model: str) -> bool:
-    """o1, o3, o4-mini, etc."""
-    return bool(re.match(r'^o[1-9]', _model_base(model)))
-
-
-def _build_llm_kwargs(model: str, api_key: str,
-                      temperature: float = None, thinking: str = "off",
-                      max_tokens: int = None) -> Dict:
-    """Build base litellm kwargs for a given model."""
-    kwargs: Dict = {"model": model, "timeout": 60}
-    if api_key:
-        kwargs["api_key"] = api_key
-    if model.startswith("ollama/"):
-        kwargs["api_base"] = "http://localhost:11434"
-    if model.startswith("kilocode/"):
-        # Mirror TELEGRAM-AI-BOT: always prepend openai/ and use trailing slash
-        kwargs["model"]    = f"openai/{model[len('kilocode/'):]}"
-        kwargs["api_base"] = "https://api.kilo.ai/api/gateway/"
-        kwargs["api_key"]  = os.getenv("KILOCODE_API_KEY", api_key)
-
-    budget = _THINKING_BUDGETS.get(thinking)
-    if budget:
-        if _is_claude(model):
-            # Anthropic extended thinking API — temperature must be 1.0
-            kwargs["thinking"]    = {"type": "enabled", "budget_tokens": budget}
-            kwargs["temperature"] = 1.0
-        elif _is_openai_reasoning(model):
-            # OpenAI o-series: reasoning_effort param, no temperature override
-            kwargs["reasoning_effort"] = _REASONING_EFFORTS[thinking]
-            if temperature is not None:
-                kwargs["temperature"] = temperature
-        else:
-            # DeepSeek, Ollama thinking models, Gemini 2.5, etc.:
-            # thinking output appears in reasoning_content/thinking delta automatically,
-            # no special param needed — just pass temperature normally
-            if temperature is not None:
-                kwargs["temperature"] = temperature
-    else:
-        if temperature is not None:
-            kwargs["temperature"] = temperature
-
-    if max_tokens:
-        kwargs["max_tokens"] = max_tokens
-
-    return kwargs
-
-
 # ── Routes ───────────────────────────────────────────────────────────────────
 
 @app.route("/")
@@ -813,12 +663,12 @@ def api_ask():
     if not question or not model:
         return jsonify({"error": "missing question or model"}), 400
 
-    provider   = model.split("/")[0] if "/" in model else ""
-    api_key    = parse_env_providers().get(provider, "")
-    llm_kwargs = _build_llm_kwargs(model, api_key,
-                                   temperature=temperature,
-                                   thinking=thinking,
-                                   max_tokens=max_tokens)
+    llm_kwargs = chat_params(
+        model,
+        temperature=temperature,
+        thinking=thinking,
+        max_tokens=max_tokens,
+    )
 
     def generate():
         # ── Step 1: LLM extracts 3-5 Wikipedia search keywords ──────────────
@@ -828,18 +678,16 @@ def api_ask():
         try:
             # Keyword extraction: lightweight, no thinking needed
             kw_kwargs = {k: v for k, v in llm_kwargs.items()
-                         if k not in ("thinking", "max_tokens")}
-            kw_resp = litellm.completion(
-                **{
-                    **kw_kwargs,
-                    "messages": [{
-                        "role": "user",
-                        "content": SKILLS.get("keyword_extraction", "Name 3 Wikipedia articles for: {question}").replace("{question}", question)
-                    }],
-                    "max_tokens": 150,
-                    "stream": False,
-                    "temperature": 0.3,
-                }
+                         if k not in ("extra_body", "max_tokens")}
+            kw_resp = chat_completion(
+                **kw_kwargs,
+                messages=[{
+                    "role": "user",
+                    "content": SKILLS.get("keyword_extraction", "Name 3 Wikipedia articles for: {question}").replace("{question}", question)
+                }],
+                max_tokens=150,
+                stream=False,
+                temperature=0.3,
             )
             raw = (kw_resp.choices[0].message.content or "").strip()
             # Extract JSON array even if model wraps it in prose
@@ -889,14 +737,16 @@ def api_ask():
 
         try:
             in_think = False   # state for <think> tag parsing
-            for chunk in litellm.completion(**{
+            for chunk in chat_completion(
                 **llm_kwargs,
-                "messages": [
+                messages=[
                     {"role": "system", "content": system},
                     {"role": "user",   "content": user_content},
                 ],
-                "stream": True,
-            }):
+                stream=True,
+            ):
+                if not chunk.choices:
+                    continue
                 delta = chunk.choices[0].delta
                 # Structured thinking (Claude, o-series, DeepSeek via reasoning_content)
                 thought = (getattr(delta, "thinking", None) or
@@ -947,10 +797,11 @@ def api_ask():
 
 
 if __name__ == "__main__":
-    PORT = int(os.environ.get("KIWIX_BRIDGE_PORT", _kiwix_conf.get("WEB_PORT", 7710)))
-    HOST = os.environ.get("KIWIX_BRIDGE_HOST", _kiwix_conf.get("WEB_HOST", "127.0.0.1"))
+    PORT = get_port("KIWIX_BRIDGE_PORT", 11008)
+    HOST = get("KIWIX_BRIDGE_HOST", get("HOST", "127.0.0.1"))
     reg  = build_model_registry()
     print(f"[KIWIX_BRIDGE] http://{HOST}:{PORT}")
-    print(f"[KIWIX_BRIDGE] Kiwix: https://127.0.0.1:450")
-    print(f"[KIWIX_BRIDGE] Provider: {', '.join(reg.keys()) or 'keine — .env prüfen'}")
+    print(f"[KIWIX_BRIDGE] Kiwix: {_kiwix_conf.get('KIWIX_URL')}")
+    print(f"[KIWIX_BRIDGE] LiteLLM proxy: {litellm_base_url()}")
+    print(f"[KIWIX_BRIDGE] Provider: {', '.join(reg.keys()) or 'keine - LiteLLM proxy/modelle pruefen'}")
     app.run(host=HOST, port=PORT, debug=False)

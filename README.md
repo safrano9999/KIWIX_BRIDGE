@@ -11,13 +11,15 @@ Even the smallest local models can answer complex factual questions with precisi
 
 ---
 
-## 🦙 Zero config local OLLAMA + optional cloud all providers LITELLM
+## 🦙 LiteLLM proxy + local Kiwix
 
-**No API key needed to get started.** Install [Ollama](https://ollama.com), pull any model, and KIWIX BRIDGE auto-discovers it at startup — all local models appear in the provider dropdown automatically. No config, no keys, no internet. 🏠
+KIWIX_BRIDGE talks to an OpenAI-compatible **LiteLLM proxy**. The app does not use the LiteLLM Python SDK anymore; it uses the official `openai` client against `/v1/chat/completions` and `/v1/models`.
 
-For cloud providers, add your API keys to `.env` — every provider you add is auto-detected and all its models appear in the dropdown instantly.
-
-Everything goes through **[LiteLLM](https://github.com/BerriAI/litellm)** — a universal adapter that makes every model, local or cloud, speak the same interface. [Kilocode](https://kilo.ai) is integrated on top to further expand the available model roster beyond LiteLLM's built-in providers. 🔌
+Runtime configuration follows the safrano9999 pattern:
+- secrets and bearer tokens live in `.env`, generated from `env.example`
+- non-secret runtime settings live in `config.conf`, generated from `config.conf_example`
+- `config.sh` prompts and merges values
+- `python_header.py` loads `config.conf`, `.env`, and injected process environment in one place
 
 The `Native Think` toggle in Settings captures `<think>` reasoning output from thinking-capable models. 🧠
 
@@ -67,7 +69,7 @@ This means even small Ollama models become genuinely useful for factual Q&A — 
   - Download Kiwix: [kiwix.org/en/download](https://www.kiwix.org/en/download/)
   - Download ZIM files: [library.kiwix.org](https://library.kiwix.org/)
 - **Python 3.9+**
-- At least one of: API keys for cloud providers, or Ollama running locally
+- **LiteLLM proxy** reachable via `LITELLM_URL` / `LITELLM_PORT`
 
 ### 2. Clone & setup
 
@@ -75,25 +77,32 @@ This means even small Ollama models become genuinely useful for factual Q&A — 
 git clone https://github.com/safrano9999/KIWIX_BRIDGE.git
 cd KIWIX_BRIDGE
 python3 bin/setup.py
+./config.sh
 ```
 
 This creates a local `venv/` and installs all dependencies.
 
-### 3. Configure Kiwix URL
+### 3. Configure runtime
 
-Edit **`kiwix.conf`** and adapt `KIWIX_URL` to your Kiwix server.
+`./config.sh` writes:
 
-### 4. Configure AI providers (not needed with ollama)
+- `.env` from `env.example` for `LITELLM_API_KEY`
+- `config.conf` from `config.conf_example` for `KIWIX_URL`, `KIWIX_BRIDGE_PORT`, `LITELLM_URL`, `LITELLM_PORT`, and optional model defaults
 
-Copy `.env.example` to `.env` and add your API keys.
-
-### 5. Run
+Default WebUI port is `11008`, with matching container publish convention:
 
 ```bash
-python bin/web.py
+KIWIX_BRIDGE_PORT=11008
+KIWIX_BRIDGE_PUBLISH_PORT=11008
 ```
 
-Open [http://127.0.0.1:7710](http://127.0.0.1:7710) in your browser — port configurable via `WEB_PORT` in `kiwix.conf`.
+### 4. Run
+
+```bash
+python3 bin/web.py
+```
+
+Open [http://127.0.0.1:11008](http://127.0.0.1:11008) in your browser.
 
 ---
 
@@ -106,23 +115,27 @@ KIWIX_BRIDGE/
 │   ├── setup.py          # One-time installer — creates venv + installs dependencies
 │   ├── web.py            # Main app — Flask web UI, run this to start
 │   ├── chat.py           # Alternative CLI chat (terminal only, no browser needed)
+│   ├── llm_proxy.py      # OpenAI client against the LiteLLM proxy
 │   └── kiwix_tool.py     # Internal library — not meant to be run directly
 ├── static/               # Logo / icon assets for the web UI
-├── kiwix.conf            # Config: Kiwix URL, web server port/host
+├── env.example           # Secret prompts for .env
+├── config.conf_example   # Non-secret runtime config prompts
+├── config.sh             # Shared safrano9999 config generator
+├── python_header.py      # Shared config/env loader
 ├── SKILLS.md             # System prompts and keyword extraction prompt (editable)
 └── requirements.txt      # Python dependencies
 ```
 
 ### `web.py` — the main interface ⭐ start here
 
-**This is the main program.** Run it, then open `http://127.0.0.1:7710` in your browser — that's all.
+**This is the main program.** Run it, then open `http://127.0.0.1:11008` in your browser.
 
 A Flask web app that uses a **RAG pipeline**:
 1. Extracts 3–5 Wikipedia search keywords from your question (via LLM)
 2. Fetches matching articles from your local Kiwix server
 3. Streams the LLM answer grounded in those articles, with clickable citations
 
-Supports Ollama (auto-detected), cloud providers via `.env` API keys, temperature/token settings, and thinking mode for reasoning models.
+Models are loaded from the LiteLLM proxy `/v1/models` endpoint. Set `KIWIX_BRIDGE_LITELLM_MODEL` as a fallback, or `KIWIX_BRIDGE_MODELS` as a comma-separated allow-list.
 
 ### `chat.py` — terminal alternative
 
@@ -137,7 +150,7 @@ Handles all communication with the Kiwix server: article discovery, search, dire
 ## 🏗️ Tech Stack
 
 - **Flask** — lightweight Python web server
-- **LiteLLM** — unified API for all LLM providers
+- **OpenAI Python client** — OpenAI-compatible calls to the LiteLLM proxy
 - **Kiwix HTTP API** — local Wikipedia search & article fetch
 - **BeautifulSoup** — HTML → clean article text
 - **SSE streaming** — real-time token streaming in the browser

@@ -7,6 +7,7 @@ article intros + citation info for RAG injection.
 
 import os
 import re
+import sys
 import urllib.parse
 import requests
 import urllib3
@@ -16,26 +17,20 @@ from typing import List, Dict, Optional
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+PROJECT_DIR = Path(__file__).resolve().parent.parent
+if str(PROJECT_DIR) not in sys.path:
+    sys.path.insert(0, str(PROJECT_DIR))
 
-def _read_conf(path: Path) -> dict:
-    """Parse a simple KEY=value config file."""
-    conf = {}
-    if not path.exists():
-        return conf
-    for line in path.read_text().splitlines():
-        line = line.strip()
-        if line and not line.startswith("#") and "=" in line:
-            k, _, v = line.partition("=")
-            conf[k.strip()] = v.strip()
-    return conf
+from python_header import get, get_bool  # noqa: E402
 
-
-_CONF = _read_conf(Path(__file__).parent.parent / "kiwix.conf")
+_CONF = {
+    "KIWIX_URL": get("KIWIX_URL", "https://127.0.0.1:450"),
+    "KIWIX_VERIFY_SSL": get("KIWIX_VERIFY_SSL", "false"),
+}
 KIWIX_CONF = _CONF  # exposed for web.py
 
-# Adapt KIWIX_URL in kiwix.conf to match your Kiwix server
-KIWIX_URL  = _CONF.get("KIWIX_URL", "https://127.0.0.1:450")
-VERIFY_SSL = False
+KIWIX_URL = _CONF["KIWIX_URL"].rstrip("/")
+VERIFY_SSL = get_bool("KIWIX_VERIFY_SSL", False)
 
 
 def _discover_books() -> List[str]:
