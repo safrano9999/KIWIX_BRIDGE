@@ -11,11 +11,22 @@ auth_declined() {
   tr ',' '\n' < "$tag_preferences" | grep -Fqx "$provider"
 }
 
+ensure_tag_ignored() {
+  local gitignore="$repo_root/.gitignore"
+
+  if [ ! -f "$gitignore" ]; then
+    printf '.tag\n' > "$gitignore"
+  elif ! grep -Fqx '.tag' "$gitignore"; then
+    printf '\n.tag\n' >> "$gitignore"
+  fi
+}
+
 remember_auth_decline() {
   local provider="${1%%.*}"
   local current=""
 
   auth_declined "$provider" && return 0
+  ensure_tag_ignored
   [ -f "$tag_preferences" ] && current="$(tr ',' '\n' < "$tag_preferences")"
   printf '%s\n%s\n' "$current" "$provider" \
     | awk 'NF && !seen[$0]++' > "$tag_preferences"
