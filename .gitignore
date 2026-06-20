@@ -3,3 +3,4 @@ config.conf
 venv/
 __pycache__/
 *.pyc
+.tag

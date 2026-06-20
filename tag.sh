@@ -4,13 +4,32 @@ set -euo pipefail
 tag="${TAG:-$(date +%Y.%-m.%-d)}"
 remote="${REMOTE:-origin}"
 
+auth_declined() {
+  local provider="${1%%.*}"
+
+  [ -f "$tag_preferences" ] || return 1
+  tr ',' '\n' < "$tag_preferences" | grep -Fqx "$provider"
+}
+
+remember_auth_decline() {
+  local provider="${1%%.*}"
+  local current=""
+
+  [ -f "$tag_preferences" ] && IFS= read -r current < "$tag_preferences"
+  case ",$current," in
+    *",$provider,"*) return 0 ;;
+  esac
+  printf '%s\n' "${current:+$current,}$provider" > "$tag_preferences"
+}
+
 confirm_login() {
   local provider="$1"
   local answer
 
+  auth_declined "$provider" && return 1
   read -rp "Auth missing: $provider. Login for $provider? [Y/n]: " answer
   case "${answer:-y}" in
-    n|N|no|NO|No) return 1 ;;
+    n|N|no|NO|No) remember_auth_decline "$provider"; return 1 ;;
     *) return 0 ;;
   esac
 }
@@ -81,7 +100,8 @@ ensure_registry_auth() {
   unset registry_token
 }
 
-git rev-parse --is-inside-work-tree >/dev/null
+repo_root="$(git rev-parse --show-toplevel)"
+tag_preferences="$repo_root/.tag"
 if [ "${1:-}" = "--check" ]; then
   set -x
   gh run list --branch "$tag" --limit 1
