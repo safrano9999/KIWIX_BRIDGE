@@ -15,11 +15,10 @@ remember_auth_decline() {
   local provider="${1%%.*}"
   local current=""
 
-  [ -f "$tag_preferences" ] && IFS= read -r current < "$tag_preferences"
-  case ",$current," in
-    *",$provider,"*) return 0 ;;
-  esac
-  printf '%s\n' "${current:+$current,}$provider" > "$tag_preferences"
+  auth_declined "$provider" && return 0
+  [ -f "$tag_preferences" ] && current="$(tr ',' '\n' < "$tag_preferences")"
+  printf '%s\n%s\n' "$current" "$provider" \
+    | awk 'NF && !seen[$0]++' > "$tag_preferences"
 }
 
 confirm_login() {
