@@ -798,10 +798,10 @@ def api_ask():
 
 if __name__ == "__main__":
     PORT = get_port("KIWIX_BRIDGE_PORT", 11008)
-    HOST = get("KIWIX_BRIDGE_HOST", get("HOST", "127.0.0.1"))
+    server_host = get("FASTAPI_HOST", "127.0.0.1")
     reg  = build_model_registry()
-    print(f"[KIWIX_BRIDGE] http://{HOST}:{PORT}")
+    print(f"[KIWIX_BRIDGE] http://{server_host}:{PORT}")
     print(f"[KIWIX_BRIDGE] Kiwix: {_kiwix_conf.get('KIWIX_URL')}")
     print(f"[KIWIX_BRIDGE] LiteLLM proxy: {litellm_base_url()}")
     print(f"[KIWIX_BRIDGE] Provider: {', '.join(reg.keys()) or 'keine - LiteLLM proxy/modelle pruefen'}")
-    app.run(host=HOST, port=PORT, debug=False)
+    app.run(host=server_host, port=PORT, debug=False)
