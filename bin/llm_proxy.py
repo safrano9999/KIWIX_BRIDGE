@@ -38,10 +38,6 @@ def _clean_url(value: str) -> str:
 
 
 def litellm_base_url() -> str:
-    explicit = _clean_url(get("OPENAI_BASE_URL"))
-    if explicit:
-        return explicit if explicit.endswith("/v1") else f"{explicit}/v1"
-
     host = _clean_url(get("LITELLM_URL", "http://127.0.0.1"))
     port = get_int("LITELLM_PORT", 4000)
     if host.endswith("/v1"):
@@ -52,20 +48,11 @@ def litellm_base_url() -> str:
 
 
 def litellm_api_key() -> str:
-    return get("LITELLM_API_KEY", get("OPENAI_API_KEY", "not-needed")) or "not-needed"
+    return get("LITELLM_API_KEY", "not-needed") or "not-needed"
 
 
 def client(timeout: float = 60.0) -> OpenAI:
     return OpenAI(base_url=litellm_base_url(), api_key=litellm_api_key(), timeout=timeout)
-
-
-def _configured_models() -> List[str]:
-    raw = get("KIWIX_BRIDGE_MODELS")
-    models = [m.strip() for m in raw.split(",") if m.strip()] if raw else []
-    default_model = get("KIWIX_BRIDGE_LITELLM_MODEL", get("LITELLM_MODEL"))
-    if default_model and default_model not in models:
-        models.insert(0, default_model)
-    return models
 
 
 def _is_chat_model(model: str) -> bool:
@@ -74,9 +61,6 @@ def _is_chat_model(model: str) -> bool:
 
 
 def list_models() -> List[str]:
-    configured = _configured_models()
-    if configured:
-        return sorted(dict.fromkeys(m for m in configured if _is_chat_model(m)))
     try:
         response = client(timeout=10.0).models.list()
         models = [item.id for item in response.data if _is_chat_model(item.id)]

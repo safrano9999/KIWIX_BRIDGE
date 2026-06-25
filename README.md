@@ -87,7 +87,7 @@ This creates a local `venv/` and installs all dependencies.
 `./config.sh` writes:
 
 - `.env` from `env.example` for `LITELLM_API_KEY`
-- `config.conf` from `config.conf_example` for `KIWIX_URL`, `KIWIX_BRIDGE_PORT`, `LITELLM_URL`, `LITELLM_PORT`, and optional model defaults
+- `config.conf` from `config.conf_example` for `KIWIX_URL`, `KIWIX_BRIDGE_PORT`, `LITELLM_URL`, and `LITELLM_PORT`
 
 Default WebUI port is `11008`, with matching container publish convention:
 
@@ -135,7 +135,7 @@ A Flask web app that uses a **RAG pipeline**:
 2. Fetches matching articles from your local Kiwix server
 3. Streams the LLM answer grounded in those articles, with clickable citations
 
-Models are loaded from the LiteLLM proxy `/v1/models` endpoint. Set `KIWIX_BRIDGE_LITELLM_MODEL` as a fallback, or `KIWIX_BRIDGE_MODELS` as a comma-separated allow-list.
+Models are loaded from the LiteLLM proxy `/v1/models` endpoint through the OpenAI-compatible client.
 
 ### `chat.py` — terminal alternative
 

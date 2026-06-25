@@ -21,16 +21,15 @@ PROJECT_DIR = Path(__file__).resolve().parent.parent
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
-from python_header import get, get_bool  # noqa: E402
+from python_header import get  # noqa: E402
 
 _CONF = {
     "KIWIX_URL": get("KIWIX_URL", "https://127.0.0.1:450"),
-    "KIWIX_VERIFY_SSL": get("KIWIX_VERIFY_SSL", "false"),
 }
 KIWIX_CONF = _CONF  # exposed for web.py
 
 KIWIX_URL = _CONF["KIWIX_URL"].rstrip("/")
-VERIFY_SSL = get_bool("KIWIX_VERIFY_SSL", False)
+VERIFY_SSL = False
 
 
 def _discover_books() -> List[str]:
