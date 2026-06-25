@@ -6,7 +6,3 @@ KIWIX_BRIDGE_PORT=11008
 
 # Local Kiwix server URL
 KIWIX_URL=https://127.0.0.1:450
-
-# LiteLLM OpenAI-compatible proxy base
-LITELLM_URL=http://127.0.0.1
-LITELLM_PORT=4000

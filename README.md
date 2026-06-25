@@ -86,8 +86,8 @@ This creates a local `venv/` and installs all dependencies.
 
 `./config.sh` writes:
 
-- `.env` from `env.example` for `LITELLM_API_KEY`
-- `config.conf` from `config.conf_example` for `KIWIX_URL`, `KIWIX_BRIDGE_PORT`, `LITELLM_URL`, and `LITELLM_PORT`
+- `.env` from `env.example` for `LITELLM_URL`, `LITELLM_PORT`, and `LITELLM_API_KEY`
+- `config.conf` from `config.conf_example` for `KIWIX_URL` and `KIWIX_BRIDGE_PORT`
 
 Default WebUI port is `11008`, with matching container publish convention:
 

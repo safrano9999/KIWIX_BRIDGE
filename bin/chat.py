@@ -130,7 +130,7 @@ def main():
     registry = build_model_registry()
     if not registry:
         print("Fehler: Keine Modelle vom LiteLLM Proxy verfügbar.")
-        print("Setze LITELLM_API_KEY in .env und LITELLM_URL/LITELLM_PORT in config.conf.")
+        print("Setze LITELLM_URL, LITELLM_PORT und LITELLM_API_KEY in .env.")
         sys.exit(1)
 
     model_key = pick_model(registry)
