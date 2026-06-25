@@ -1,4 +1,4 @@
-"""OpenAI-compatible LiteLLM proxy helpers for KIWIX_BRIDGE."""
+"""OpenAI v1 endpoint helpers for KIWIX_BRIDGE."""
 
 from __future__ import annotations
 
@@ -7,13 +7,18 @@ import sys
 from pathlib import Path
 from typing import Dict, List
 
-from openai import OpenAI
-
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
-from python_header import get, get_int  # noqa: E402
+from python_header import (  # noqa: F401,E402
+    get,
+    openai_v1_client,
+    openai_v1_first_provider,
+    openai_v1_models,
+    openai_v1_provider_for_model,
+    openai_v1_providers,
+)
 
 _THINKING_BUDGETS = {"low": 1024, "medium": 5000, "high": 16000}
 _REASONING_EFFORTS = {"low": "low", "medium": "medium", "high": "high"}
@@ -33,26 +38,14 @@ _SKIP_MODEL_PARTS = (
 )
 
 
-def _clean_url(value: str) -> str:
-    return value.strip().rstrip("/")
+def openai_v1_base_url() -> str:
+    provider = openai_v1_first_provider()
+    return provider.base_url if provider else ""
 
 
-def litellm_base_url() -> str:
-    host = _clean_url(get("LITELLM_URL", "http://127.0.0.1"))
-    port = get_int("LITELLM_PORT", 4000)
-    if host.endswith("/v1"):
-        return host
-    if re.search(r":\d+$", host):
-        return f"{host}/v1"
-    return f"{host}:{port}/v1"
-
-
-def litellm_api_key() -> str:
-    return get("LITELLM_API_KEY", "not-needed") or "not-needed"
-
-
-def client(timeout: float = 60.0) -> OpenAI:
-    return OpenAI(base_url=litellm_base_url(), api_key=litellm_api_key(), timeout=timeout)
+def client(timeout: float = 60.0, model: str = ""):
+    provider = openai_v1_provider_for_model(model) if model else openai_v1_first_provider()
+    return openai_v1_client(provider, timeout=timeout)
 
 
 def _is_chat_model(model: str) -> bool:
@@ -61,18 +54,19 @@ def _is_chat_model(model: str) -> bool:
 
 
 def list_models() -> List[str]:
-    try:
-        response = client(timeout=10.0).models.list()
-        models = [item.id for item in response.data if _is_chat_model(item.id)]
-        return sorted(dict.fromkeys(models))
-    except Exception:
-        return []
+    models: list[str] = []
+    for provider in openai_v1_providers():
+        try:
+            models.extend(item for item in openai_v1_models(provider, timeout=10.0) if _is_chat_model(item))
+        except Exception:
+            continue
+    return sorted(dict.fromkeys(models))
 
 
 def build_model_registry() -> Dict[str, List[str]]:
     registry: Dict[str, List[str]] = {}
     for model in list_models():
-        provider = model.split("/", 1)[0] if "/" in model else "litellm"
+        provider = model.split("/", 1)[0] if "/" in model else "openai_v1"
         registry.setdefault(provider, []).append(model)
     return {provider: sorted(models) for provider, models in sorted(registry.items())}
 
@@ -120,4 +114,4 @@ def chat_params(
 
 
 def chat_completion(**kwargs):
-    return client().chat.completions.create(**kwargs)
+    return client(model=str(kwargs.get("model") or "")).chat.completions.create(**kwargs)

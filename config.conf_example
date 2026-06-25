@@ -1,7 +1,9 @@
 # FastAPI bind address for direct run and published ports
+#required: FastAPI bind host
 FASTAPI_HOST=127.0.0.1
 
 # KIWIX_BRIDGE Web UI internal port
+#required: KIWIX_BRIDGE internal web UI port
 KIWIX_BRIDGE_PORT=11008
 
 # Local Kiwix server URL

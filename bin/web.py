@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-KIWIX_BRIDGE web.py — Q&A with local Wikipedia (Kiwix) + LiteLLM proxy
+KIWIX_BRIDGE web.py — Q&A with local Wikipedia (Kiwix) + OpenAI v1 endpoint
 Always fetches Wikipedia context first (RAG), then streams LLM answer.
 Works with small/offline models (no function calling needed).
 Run: python web.py
@@ -27,7 +27,7 @@ from flask import Flask, request, jsonify, Response, stream_with_context, render
 import re
 
 from python_header import get, get_port  # noqa: E402
-from llm_proxy import build_model_registry, chat_completion, chat_params, litellm_base_url  # noqa: E402
+from llm_proxy import build_model_registry, chat_completion, chat_params, openai_v1_base_url  # noqa: E402
 
 logging.basicConfig(level=logging.WARNING)
 
@@ -802,6 +802,6 @@ if __name__ == "__main__":
     reg  = build_model_registry()
     print(f"[KIWIX_BRIDGE] http://{server_host}:{PORT}")
     print(f"[KIWIX_BRIDGE] Kiwix: {_kiwix_conf.get('KIWIX_URL')}")
-    print(f"[KIWIX_BRIDGE] LiteLLM proxy: {litellm_base_url()}")
-    print(f"[KIWIX_BRIDGE] Provider: {', '.join(reg.keys()) or 'keine - LiteLLM proxy/modelle pruefen'}")
+    print(f"[KIWIX_BRIDGE] OpenAI v1: {openai_v1_base_url()}")
+    print(f"[KIWIX_BRIDGE] Provider: {', '.join(reg.keys()) or 'keine - OpenAI-v1-Endpoint/modelle pruefen'}")
     app.run(host=server_host, port=PORT, debug=False)

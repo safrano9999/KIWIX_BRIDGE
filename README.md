@@ -11,9 +11,9 @@ Even the smallest local models can answer complex factual questions with precisi
 
 ---
 
-## 🦙 LiteLLM proxy + local Kiwix
+## OpenAI v1 endpoints + local Kiwix
 
-KIWIX_BRIDGE talks to an OpenAI-compatible **LiteLLM proxy**. The app does not use the LiteLLM Python SDK anymore; it uses the official `openai` client against `/v1/chat/completions` and `/v1/models`.
+KIWIX_BRIDGE talks to one or more OpenAI-compatible v1 endpoints. The app uses the official `openai` client against `/v1/chat/completions` and `/v1/models`.
 
 Runtime configuration follows the safrano9999 pattern:
 - secrets and bearer tokens live in `.env`, generated from `env.example`
@@ -69,7 +69,7 @@ This means even small Ollama models become genuinely useful for factual Q&A — 
   - Download Kiwix: [kiwix.org/en/download](https://www.kiwix.org/en/download/)
   - Download ZIM files: [library.kiwix.org](https://library.kiwix.org/)
 - **Python 3.9+**
-- **LiteLLM proxy** reachable via `LITELLM_URL` / `LITELLM_PORT`
+- **OpenAI-compatible v1 endpoint** reachable via `OPENAI_V1_URL` / `OPENAI_V1_PORT`
 
 ### 2. Clone & setup
 
@@ -86,7 +86,7 @@ This creates a local `venv/` and installs all dependencies.
 
 `./config.sh` writes:
 
-- `.env` from `env.example` for `LITELLM_URL`, `LITELLM_PORT`, and `LITELLM_API_KEY`
+- `.env` from `env.example` for `OPENAI_V1_URL`, `OPENAI_V1_PORT`, and `OPENAI_V1_KEY`
 - `config.conf` from `config.conf_example` for `KIWIX_URL` and `KIWIX_BRIDGE_PORT`
 
 Default WebUI port is `11008`, with matching container publish convention:
@@ -115,7 +115,7 @@ KIWIX_BRIDGE/
 │   ├── setup.py          # One-time installer — creates venv + installs dependencies
 │   ├── web.py            # Main app — Flask web UI, run this to start
 │   ├── chat.py           # Alternative CLI chat (terminal only, no browser needed)
-│   ├── llm_proxy.py      # OpenAI client against the LiteLLM proxy
+│   ├── llm_proxy.py      # OpenAI client against configured v1 endpoints
 │   └── kiwix_tool.py     # Internal library — not meant to be run directly
 ├── static/               # Logo / icon assets for the web UI
 ├── env.example           # Secret prompts for .env
@@ -135,7 +135,7 @@ A Flask web app that uses a **RAG pipeline**:
 2. Fetches matching articles from your local Kiwix server
 3. Streams the LLM answer grounded in those articles, with clickable citations
 
-Models are loaded from the LiteLLM proxy `/v1/models` endpoint through the OpenAI-compatible client.
+Models are loaded from configured `/v1/models` endpoints through the OpenAI-compatible client.
 
 ### `chat.py` — terminal alternative
 
@@ -150,7 +150,7 @@ Handles all communication with the Kiwix server: article discovery, search, dire
 ## 🏗️ Tech Stack
 
 - **Flask** — lightweight Python web server
-- **OpenAI Python client** — OpenAI-compatible calls to the LiteLLM proxy
+- **OpenAI Python client** — OpenAI-compatible calls to configured v1 endpoints
 - **Kiwix HTTP API** — local Wikipedia search & article fetch
 - **BeautifulSoup** — HTML → clean article text
 - **SSE streaming** — real-time token streaming in the browser

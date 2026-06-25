@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 KIWIX_BRIDGE - interactive CLI chat with local Wikipedia tool.
-Uses the OpenAI-compatible LiteLLM proxy configured through config.conf/.env.
+Uses OpenAI-compatible v1 endpoints configured through config.conf/.env.
 """
 
 import json
@@ -129,8 +129,8 @@ def pick_model(registry: Dict[str, List[str]]) -> Optional[str]:
 def main():
     registry = build_model_registry()
     if not registry:
-        print("Fehler: Keine Modelle vom LiteLLM Proxy verfügbar.")
-        print("Setze LITELLM_URL, LITELLM_PORT und LITELLM_API_KEY in .env.")
+        print("Fehler: Keine Modelle vom OpenAI-v1-Endpoint verfügbar.")
+        print("Setze OPENAI_V1_URL, OPENAI_V1_PORT und OPENAI_V1_KEY in .env.")
         sys.exit(1)
 
     model_key = pick_model(registry)
