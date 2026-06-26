@@ -1,3 +1,2 @@
-# KIWIX_BRIDGE Web UI host port
 #required: KIWIX_BRIDGE published web UI port
 KIWIX_BRIDGE_PUBLISH_PORT=11008
