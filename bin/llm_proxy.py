@@ -11,8 +11,8 @@ PROJECT_DIR = Path(__file__).resolve().parent.parent
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
-from python_header import (  # noqa: F401,E402
-    get,
+from python_header import get  # noqa: F401,E402
+from openai_v1 import (  # noqa: E402
     openai_v1_client,
     openai_v1_first_provider,
     openai_v1_models,
