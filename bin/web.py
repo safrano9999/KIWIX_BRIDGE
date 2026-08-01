@@ -66,7 +66,7 @@ def build_system_prompt(has_context: bool) -> str:
     return SKILLS.get(key, "You are a helpful assistant.")
 
 # ── Flask ────────────────────────────────────────────────────────────────────
-app = Flask(__name__)
+app = Flask(__name__, static_folder=_DIR / "static")
 
 HTML = r"""<!DOCTYPE html>
 <html lang="de">
