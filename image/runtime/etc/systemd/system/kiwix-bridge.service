@@ -1,13 +1,13 @@
 [Unit]
 Description=KIWIX_BRIDGE
-After=network.target tailscale-up.service
-Wants=tailscale-up.service
+After=network.target
 
 [Service]
 Type=simple
 WorkingDirectory=/opt/safrano9999/KIWIX_BRIDGE
 PassEnvironment=FASTAPI_HOST KIWIX_BRIDGE_PORT KIWIX_URL OPENAI_V1_PROVIDER OPENAI_V1_URL OPENAI_V1_PORT OPENAI_V1_KEY OPENAI_V1_STREAM
 ExecStart=python3 bin/web.py
+ExecStartPost=/bin/bash -c 'exec /usr/local/libexec/fedora44-wait-ready --timeout 60 tcp 127.0.0.1 "$${KIWIX_BRIDGE_PORT:-11008}"'
 Restart=on-failure
 
 [Install]
